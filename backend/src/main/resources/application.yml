@@ -12,10 +12,14 @@ spring:
       schema-locations: classpath:schema.sql
 
 mybatis:
-  mapper-locations: classpath*:mapper/*.xml
   configuration:
     map-underscore-to-camel-case: true
 
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:dev-only-change-me-secure-file-vault-jwt-secret-please-override}
+    expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
