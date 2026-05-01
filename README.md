@@ -1,34 +1,36 @@
 # Secure File Vault
 
-Java 17 + Spring Boot 3 project for an AWS S3 based permission-controlled file management system.
+[日本語](README.md) | [中文](README.zh-CN.md) | [English](README.en.md)
 
-## Phase 1 Scope
+Java 17 + Spring Boot 3 で構築する、AWS S3 ベースの権限制御付きファイル管理システムです。
 
-- Spring Boot application can start.
-- `GET /api/health` returns `OK`.
-- MySQL datasource configuration.
-- MyBatis starter and mapper scanning are configured.
-- Initial schema creates:
+## フェーズ 1 の範囲
+
+- Spring Boot アプリケーションが起動できること。
+- `GET /api/health` が `OK` を返すこと。
+- MySQL のデータソース設定。
+- MyBatis Starter と Mapper Scan の設定。
+- 初期スキーマで以下の 3 テーブルを作成:
   - `users`
   - `files`
   - `file_access_logs`
-- Swagger / OpenAPI UI is enabled.
+- Swagger / OpenAPI UI の有効化。
 
-## Requirements
+## 必要環境
 
 - Java 17
 - Maven 3.9+
 - MySQL 8+
 
-## Database Setup
+## データベース準備
 
-Create the database before starting the application:
+アプリケーション起動前に、MySQL でデータベースを作成します。
 
 ```sql
 CREATE DATABASE secure_file_vault CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-By default the application uses:
+デフォルトでは、以下の接続設定を使用します。
 
 ```text
 DB_URL=jdbc:mysql://localhost:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
@@ -36,20 +38,20 @@ DB_USERNAME=root
 DB_PASSWORD=password
 ```
 
-Override them with environment variables if needed.
+必要に応じて環境変数で上書きしてください。
 
-## Run
+## 起動方法
 
 ```bash
 mvn spring-boot:run
 ```
 
-Then open:
+起動後、以下にアクセスできます。
 
-- Health check: `http://localhost:8080/api/health`
+- ヘルスチェック: `http://localhost:8080/api/health`
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 
-## Project Structure
+## プロジェクト構成
 
 ```text
 src/main/java/com/example/securefilevault
@@ -65,6 +67,6 @@ src/test/java/com/example/securefilevault
   SecureFileVaultApplicationTests.java
 ```
 
-## Notes
+## メモ
 
-This is intentionally limited to the first runnable phase. File upload, S3 integration, authentication, authorization, and access logging behavior will be added in later phases.
+このバージョンは、最小限の起動可能なフェーズ 1 に限定しています。ファイルアップロード、S3 連携、認証、認可、アクセスログの実装は後続フェーズで追加します。
