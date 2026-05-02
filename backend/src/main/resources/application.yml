@@ -23,3 +23,8 @@ app:
   jwt:
     secret: ${JWT_SECRET:dev-only-change-me-secure-file-vault-jwt-secret-please-override}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
+
+aws:
+  region: ap-northeast-1
+  s3:
+    bucket: secure-file-vault-dev-sophia-20260502

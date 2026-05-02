@@ -2,7 +2,7 @@
 
 [日本語](README.md) | [中文](README.zh-CN.md) | [English](README.en.md)
 
-A personal portfolio project for a permission-controlled file management system built with Spring Boot and AWS S3. The project will be implemented in stages so it can be explained clearly in Japanese IT interviews, including JWT authentication, S3 Presigned URLs, user-level access control, database-managed file metadata, and operation logs.
+A personal portfolio project for a permission-controlled file management system built with Spring Boot and AWS S3. This version simulates a legacy-system migration: PDF files that used to be stored as DB BLOBs are now stored in AWS S3, while the DB keeps only file metadata. The project is designed to be easy to explain in Japanese IT interviews, including JWT authentication, backend multipart upload, user-level access control, database-managed file metadata, and operation logs.
 
 ## Phase 1 Scope
 
@@ -14,7 +14,7 @@ This phase only creates the minimum project skeleton:
 - The frontend home page displays `Secure File Vault`
 - Initial README files
 
-Login authentication is implemented in phase 2. S3 integration and file upload are not implemented yet.
+The current phase implements backend multipart upload to S3, backend download, and backend delete APIs.
 
 ## Planned Tech Stack
 
@@ -88,6 +88,89 @@ JWT_SECRET=dev-only-change-me-secure-file-vault-jwt-secret-please-override
 
 For interviews or real demos, replace `JWT_SECRET` with a random string of at least 32 characters.
 
+## S3 Backend Upload
+
+The current implementation simulates migrating an existing system from DB BLOB storage to AWS S3 storage. To reduce frontend migration scope, the frontend still uploads with `multipart/form-data`; the backend receives the file and uploads the file body to a private S3 bucket.
+
+Backend APIs:
+
+```text
+POST   /api/files/upload
+GET    /api/files/{fileId}/download
+DELETE /api/files/{fileId}
+GET  /api/files
+```
+
+Upload flow:
+
+1. The frontend selects a PDF file.
+2. The frontend calls `POST /api/files/upload` with `multipart/form-data`.
+3. `FileController` only receives requests and returns responses.
+4. `FileUploadService` validates that the file is not empty and the Content-Type is `application/pdf`.
+5. The backend inserts DB metadata first with status `UPLOADING`.
+6. The generated DB `id` is used as the S3 object key.
+7. `FileUploadService` calls `S3StorageService.upload(...)` to store the file body in S3.
+8. After upload succeeds, the DB status becomes `AVAILABLE` and an operation log is written.
+
+Download and delete flow:
+
+- `FileDownloadService` queries DB by `fileId`, checks existence and ownership, calls `S3StorageService.download(s3Key)`, and returns the file as `application/pdf`.
+- `FileDeleteService` queries DB by `fileId`, checks ownership, calls `S3StorageService.delete(s3Key)`, and writes a delete log.
+
+Allowed content types:
+
+```text
+application/pdf
+```
+
+S3 object key rule:
+
+```text
+s3Key = files.id
+```
+
+For example, if the DB primary key is `123`, the S3 object key is also `123`.
+
+The `files` table stores metadata only, not file binary data:
+
+```text
+id
+owner_id
+original_filename
+content_type
+file_size
+status
+created_at
+updated_at
+```
+
+`S3StorageService` encapsulates all S3 operations for reuse across business services:
+
+```text
+upload(String s3Key, InputStream inputStream, long contentLength, String contentType)
+download(String s3Key)
+delete(String s3Key)
+exists(String s3Key)
+```
+
+Presigned URLs remain a future optimization option. They can be introduced later if backend bandwidth needs to be reduced by letting the browser upload directly to S3.
+
+AWS configuration comes from environment variables or `application.yml`:
+
+```text
+AWS_REGION=ap-northeast-1
+AWS_S3_BUCKET=your-private-bucket-name
+```
+
+AWS access keys are not hard-coded. For local development, use an AWS CLI profile or environment variables:
+
+```text
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+```
+
+Because the current upload flow goes through the backend, local upload testing does not require S3 CORS.
+
 ## Run
 
 ### Backend
@@ -146,16 +229,17 @@ secure-file-vault
 ## Design Notes
 
 - Backend and frontend are separated first so later phases can be added cleanly.
-- The S3 bucket will be designed as private.
-- Upload and download flows will use backend-generated Presigned URLs in later phases.
+- The S3 bucket is designed as private.
+- Backend upload is used to simulate a legacy-system migration and reduce frontend changes.
+- The DB stores only metadata; the file body is stored in S3.
+- The S3 object key uses the DB primary key, so no separate `s3_key` column is needed.
+- `S3StorageService` encapsulates upload, download, delete, and existence checks for reuse.
 - Authentication secrets and AWS access keys must not be hard-coded. They should come from environment variables or configuration.
 
 ## Next Phase
 
-The next phase should implement the file upload entry point and file metadata table:
+Possible next improvements:
 
-- `files` table
-- File statuses: `UPLOADING / AVAILABLE / DELETED / FAILED`
-- Generate S3 Presigned Upload URLs
-- Notify backend after upload completion
-- List only the current user's files
+- `GET /api/files/{fileId}/logs`
+- Admin access control and cross-user audit views
+- Presigned URL upload to reduce backend file-transfer bandwidth

@@ -1,4 +1,30 @@
+import { useEffect, useState } from 'react';
+import { listFiles } from '../api/fileApi.js';
+import FileTable from './FileTable.jsx';
+import FileUpload from './FileUpload.jsx';
+
 function FileDashboard({ currentUser, onLogout }) {
+  const [files, setFiles] = useState([]);
+  const [loadingFiles, setLoadingFiles] = useState(true);
+  const [fileListError, setFileListError] = useState('');
+
+  useEffect(() => {
+    refreshFiles();
+  }, []);
+
+  async function refreshFiles() {
+    setFileListError('');
+    setLoadingFiles(true);
+    try {
+      const fileList = await listFiles();
+      setFiles(fileList);
+    } catch (error) {
+      setFileListError(error.message);
+    } finally {
+      setLoadingFiles(false);
+    }
+  }
+
   return (
     <main className="dashboard-page">
       <header className="dashboard-header">
@@ -16,30 +42,13 @@ function FileDashboard({ currentUser, onLogout }) {
 
       <section className="panel">
         <h2>Upload</h2>
-        <p>
-          File upload and S3 Presigned URL flow will be implemented in the next phase.
-        </p>
+        <FileUpload onUploadComplete={refreshFiles} />
       </section>
 
       <section className="panel">
         <h2>Files</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Filename</th>
-              <th>Type</th>
-              <th>Size</th>
-              <th>Status</th>
-              <th>Created At</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td colSpan="6">No files yet.</td>
-            </tr>
-          </tbody>
-        </table>
+        {fileListError && <p className="error-message">{fileListError}</p>}
+        <FileTable files={files} loading={loadingFiles} onFilesChanged={refreshFiles} />
       </section>
     </main>
   );

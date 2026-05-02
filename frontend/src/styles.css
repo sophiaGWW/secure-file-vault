@@ -108,6 +108,12 @@ input {
   font-weight: 700;
 }
 
+.success-message {
+  margin: 0;
+  color: #1d6b3a;
+  font-weight: 700;
+}
+
 .link-button {
   width: 100%;
   margin-top: 18px;
@@ -148,6 +154,44 @@ input {
   color: #51606f;
 }
 
+.upload-box {
+  display: grid;
+  gap: 18px;
+}
+
+.file-input {
+  max-width: 420px;
+  padding: 10px;
+  background: #ffffff;
+}
+
+.file-preview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.file-preview > div {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #d8e0ea;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.preview-label {
+  display: block;
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.file-preview strong {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -165,6 +209,64 @@ th {
   font-size: 0.9rem;
 }
 
+.muted-text {
+  color: #64748b;
+}
+
+.table-message {
+  margin-bottom: 12px;
+}
+
+.table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.table-actions button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.88rem;
+}
+
+.secondary-button {
+  border: 1px solid #b8c3cf;
+  background: #ffffff;
+  color: #1f5fbf;
+}
+
+.danger-button {
+  background: #b42318;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #e8eef7;
+  color: #2b4a73;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.status-available {
+  background: #e8f6ee;
+  color: #1d6b3a;
+}
+
+.status-uploading {
+  background: #fff7df;
+  color: #8a5a00;
+}
+
+.status-failed,
+.status-deleted {
+  background: #fdecec;
+  color: #9b1c1c;
+}
+
 @media (max-width: 720px) {
   .center-page,
   .dashboard-page {
@@ -172,8 +274,13 @@ th {
   }
 
   .dashboard-header,
-  .user-actions {
+  .user-actions,
+  .file-preview {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .file-preview {
+    display: flex;
   }
 }

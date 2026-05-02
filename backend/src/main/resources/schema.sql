@@ -5,3 +5,30 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(50) NOT NULL DEFAULT 'USER',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS files (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    owner_id BIGINT NOT NULL,
+    original_filename VARCHAR(255) NOT NULL,
+    content_type VARCHAR(255) NOT NULL,
+    file_size BIGINT NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_files_owner
+        FOREIGN KEY (owner_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS file_access_logs (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    file_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    result VARCHAR(50) NOT NULL,
+    ip_address VARCHAR(45),
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_file_access_logs_file
+        FOREIGN KEY (file_id) REFERENCES files(id),
+    CONSTRAINT fk_file_access_logs_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+);

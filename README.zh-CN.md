@@ -2,7 +2,7 @@
 
 [日本語](README.md) | [中文](README.zh-CN.md) | [English](README.en.md)
 
-这是一个基于 Spring Boot + AWS S3 的权限控制文件管理系统个人项目。项目会按阶段实现 JWT 认证、S3 Presigned URL、用户级权限控制、文件元数据 DB 管理和操作日志，目标是可以上传到 GitHub，并且适合在日本 IT 面试中讲解。
+这是一个基于 Spring Boot + AWS S3 的权限控制文件管理系统个人项目。项目模拟既存系统改修场景：原本 PDF 文件以 DB BLOB 保存，现在迁移为文件本体保存到 AWS S3，DB 只保存 metadata。项目会按阶段实现 JWT 认证、后端 multipart 上传、用户级权限控制、文件元数据 DB 管理和操作日志，目标是可以上传到 GitHub，并且适合在日本 IT 面试中讲解。
 
 ## 第一阶段范围
 
@@ -14,7 +14,7 @@
 - 前端首页显示 `Secure File Vault`
 - 添加 README 初版
 
-当前第二阶段已实现登录认证。S3 集成和文件上传暂未实现。
+当前阶段已实现后端接收 multipart/form-data 后上传到 S3，并提供后端下载和删除接口。
 
 ## 计划技术栈
 
@@ -88,6 +88,89 @@ JWT_SECRET=dev-only-change-me-secure-file-vault-jwt-secret-please-override
 
 面试或正式演示时，请将 `JWT_SECRET` 改成至少 32 字符的随机字符串，不要使用默认值。
 
+## S3 Backend Upload
+
+当前实现模拟既存系统从 DB BLOB 保存迁移到 AWS S3 保存。为了降低既存前端改修范围，前端仍然使用常见的 `multipart/form-data` 上传方式调用后端，文件本体由后端接收后上传到私有 S3 bucket。
+
+后端接口：
+
+```text
+POST   /api/files/upload
+GET    /api/files/{fileId}/download
+DELETE /api/files/{fileId}
+GET  /api/files
+```
+
+上传流程：
+
+1. 前端选择 PDF 文件。
+2. 前端通过 `multipart/form-data` 调用 `POST /api/files/upload`。
+3. `FileController` 只负责接收请求和返回响应。
+4. `FileUploadService` 校验文件是否为空、Content-Type 是否为 `application/pdf`。
+5. 后端先插入 DB metadata，状态为 `UPLOADING`。
+6. DB 生成的 `id` 作为 S3 object key。
+7. `FileUploadService` 调用 `S3StorageService.upload(...)` 把文件本体保存到 S3。
+8. 上传成功后，DB 状态更新为 `AVAILABLE`，并记录操作日志。
+
+下载和删除流程：
+
+- `FileDownloadService` 根据 `fileId` 查询 DB，校验文件存在和当前用户权限，然后通过 `S3StorageService.download(s3Key)` 下载 S3 文件，并以 `application/pdf` 返回给前端。
+- `FileDeleteService` 根据 `fileId` 查询 DB，校验当前用户权限，然后通过 `S3StorageService.delete(s3Key)` 删除 S3 object，并记录删除日志。
+
+允许上传的类型：
+
+```text
+application/pdf
+```
+
+S3 object key 规则：
+
+```text
+s3Key = files.id
+```
+
+例如 DB 主键是 `123`，则 S3 object key 也是 `123`。
+
+`files` 表只保存 metadata，不保存文件二进制：
+
+```text
+id
+owner_id
+original_filename
+content_type
+file_size
+status
+created_at
+updated_at
+```
+
+`S3StorageService` 独立封装所有 S3 操作，业务 Service 不重复编写 S3 代码：
+
+```text
+upload(String s3Key, InputStream inputStream, long contentLength, String contentType)
+download(String s3Key)
+delete(String s3Key)
+exists(String s3Key)
+```
+
+Presigned URL 仍然可以作为未来优化方案：当需要降低后端带宽压力时，可以改为后端签发临时 URL，浏览器直接上传到 S3。
+
+AWS 配置来自环境变量或 `application.yml`：
+
+```text
+AWS_REGION=ap-northeast-1
+AWS_S3_BUCKET=your-private-bucket-name
+```
+
+AWS access key 不写在代码里。开发环境建议使用 AWS CLI profile 或环境变量：
+
+```text
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+```
+
+当前后端上传方式不要求浏览器直接访问 S3，因此本地开发不需要为了上传配置 S3 CORS。
+
 ## 启动方法
 
 ### Backend
@@ -147,15 +230,16 @@ secure-file-vault
 
 - 先分离后端和前端目录，方便后续按阶段扩展。
 - S3 bucket 按 private 设计，用户不能直接访问 public URL。
-- 上传和下载会在后续阶段通过后端生成 Presigned URL 完成。
+- 采用后端上传方式是为了模拟既存系统改修，并降低既存前端改修范围。
+- DB 只保存 metadata，文件本体保存到 S3。
+- S3 object key 使用 DB 主键，不再额外保存 `s3_key`。
+- `S3StorageService` 独立封装上传、下载、删除和存在性检查，便于多个业务 Service 复用。
 - 认证密钥和 AWS access key 不写死在代码里，使用环境变量或配置文件。
 
 ## 下一阶段建议
 
-下一阶段实现文件上传入口和文件元数据表：
+下一阶段可以继续优化：
 
-- `files` 表
-- 文件状态 `UPLOADING / AVAILABLE / DELETED / FAILED`
-- 生成 S3 Presigned Upload URL
-- 上传完成后通知后端
-- 文件列表只展示当前用户的文件
+- `GET /api/files/{fileId}/logs`
+- 管理员权限和跨用户审计
+- Presigned URL 直传，降低后端文件传输带宽
