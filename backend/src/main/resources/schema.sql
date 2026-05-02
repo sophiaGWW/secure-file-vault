@@ -1,3 +1,4 @@
+-- ユーザー認証情報を保存するテーブル。password は hash のみ保存する。
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     username VARCHAR(100) NOT NULL UNIQUE,
@@ -6,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- ファイル metadata を保存するテーブル。ファイル本体は DB に保存せず S3 に保存する。
 CREATE TABLE IF NOT EXISTS files (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     owner_id BIGINT NOT NULL,
@@ -19,9 +21,10 @@ CREATE TABLE IF NOT EXISTS files (
         FOREIGN KEY (owner_id) REFERENCES users(id)
 );
 
+-- ファイル操作の監査ログを保存するテーブル。
 CREATE TABLE IF NOT EXISTS file_access_logs (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    file_id BIGINT NOT NULL,
+    file_id BIGINT,
     user_id BIGINT NOT NULL,
     action VARCHAR(50) NOT NULL,
     result VARCHAR(50) NOT NULL,

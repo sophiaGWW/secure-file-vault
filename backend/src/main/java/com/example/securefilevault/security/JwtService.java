@@ -15,6 +15,7 @@ import java.util.Date;
 @Service
 public class JwtService {
 
+    // JWT の署名秘密鍵と有効期限は application.yml / 環境変数から読み込む。
     private final JwtProperties jwtProperties;
 
     public JwtService(JwtProperties jwtProperties) {
@@ -25,6 +26,7 @@ public class JwtService {
         Instant now = Instant.now();
         Instant expiresAt = now.plusSeconds(jwtProperties.getExpirationMinutes() * 60);
 
+        // subject には userId を入れ、必要最小限のユーザー情報だけを claim に入れる。
         return Jwts.builder()
                 .subject(String.valueOf(user.getId()))
                 .claim("username", user.getUsername())
@@ -45,6 +47,7 @@ public class JwtService {
             parseClaims(token);
             return true;
         } catch (JwtException | IllegalArgumentException exception) {
+            // 期限切れ・改ざん・形式不正の token は認証不可として扱う。
             return false;
         }
     }
@@ -58,6 +61,7 @@ public class JwtService {
     }
 
     private SecretKey getSigningKey() {
+        // HMAC 署名用の鍵を UTF-8 バイト列から生成する。
         byte[] keyBytes = jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }

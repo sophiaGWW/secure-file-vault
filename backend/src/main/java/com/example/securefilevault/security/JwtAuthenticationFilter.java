@@ -18,6 +18,7 @@ import java.util.List;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    // リクエストごとに Authorization ヘッダーを検証し、認証済みユーザーを SecurityContext に設定する。
     private final JwtService jwtService;
     private final UserMapper userMapper;
 
@@ -35,10 +36,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = resolveBearerToken(request);
 
         if (token != null && jwtService.isTokenValid(token)) {
+            // token の subject から userId を取り出し、DB の最新ユーザー情報を使う。
             Long userId = jwtService.getUserId(token);
             User user = userMapper.findById(userId);
 
             if (user != null) {
+                // Spring Security の権限形式に合わせて ROLE_ prefix を付ける。
                 List<SimpleGrantedAuthority> authorities =
                         List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole()));
                 UsernamePasswordAuthenticationToken authentication =
@@ -55,6 +58,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (authorization == null || !authorization.startsWith("Bearer ")) {
             return null;
         }
+        // "Bearer " の後ろだけを JWT として取り出す。
         return authorization.substring(7);
     }
 }

@@ -6,12 +6,14 @@ import java.time.LocalDateTime;
 
 public class UserResponse {
 
+    // フロントエンドへ返してよいユーザー情報だけを持つ。passwordHash は含めない。
     private Long id;
     private String username;
     private String role;
     private LocalDateTime createdAt;
 
     public static UserResponse from(User user) {
+        // User entity から公開可能な項目だけを取り出す。
         UserResponse response = new UserResponse();
         response.setId(user.getId());
         response.setUsername(user.getUsername());

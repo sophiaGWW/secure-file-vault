@@ -96,9 +96,9 @@ JWT_SECRET=dev-only-change-me-secure-file-vault-jwt-secret-please-override
 
 ```text
 POST   /api/files/upload
+GET    /api/files
 GET    /api/files/{fileId}/download
 DELETE /api/files/{fileId}
-GET  /api/files
 ```
 
 アップロードフロー:
@@ -114,7 +114,12 @@ GET  /api/files
 
 ダウンロードと削除:
 
-- `FileDownloadService` は `fileId` で DB を検索し、存在確認と権限チェックを行ったうえで `S3StorageService.download(s3Key)` を呼び出し、`application/pdf` として返します。
+- `GET /api/files` は metadata のみを返し、ファイル本体は返しません。一般ユーザーは `owner_id` が自分の userId と一致するファイルだけを参照でき、`ADMIN` は削除済み以外の全ファイルを参照できます。
+- `FileDownloadService` は `fileId` で DB metadata を検索し、存在確認、`status = AVAILABLE`、`owner_id` による権限チェックを行います。
+- 一般ユーザーは `owner_id` が自分の userId と一致するファイルだけをダウンロードでき、`ADMIN` は全ファイルをダウンロードできます。
+- 権限チェック後、バックエンドは `String.valueOf(fileId)` を S3 object key として使い、`S3StorageService.download(objectKey)` で S3 からファイルを取得します。
+- ダウンロードレスポンスは `application/pdf` とし、`original_filename` を使って `Content-Disposition` のファイル名を設定します。
+- ダウンロード成功時は `DOWNLOAD / SUCCESS`、ファイル不存在時は `DOWNLOAD / NOT_FOUND`、権限なしの場合は `DOWNLOAD / ACCESS_DENIED` をログに記録します。
 - `FileDeleteService` は `fileId` で DB を検索し、権限チェック後に `S3StorageService.delete(s3Key)` を呼び出し、削除ログを記録します。
 
 許可する content type:
@@ -126,7 +131,7 @@ application/pdf
 S3 object key のルール:
 
 ```text
-s3Key = files.id
+objectKey = String.valueOf(fileId)
 ```
 
 たとえば DB 主キーが `123` の場合、S3 object key も `123` です。
@@ -148,7 +153,7 @@ updated_at
 
 ```text
 upload(String s3Key, InputStream inputStream, long contentLength, String contentType)
-download(String s3Key)
+download(String objectKey)
 delete(String s3Key)
 exists(String s3Key)
 ```

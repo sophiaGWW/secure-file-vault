@@ -6,7 +6,9 @@ import java.time.LocalDateTime;
 
 public class FileResponse {
 
+    // ファイル一覧・アップロード結果で返す metadata。ファイル本体は含めない。
     private Long id;
+    private Long ownerId;
     private String originalFilename;
     private String contentType;
     private Long fileSize;
@@ -15,8 +17,10 @@ public class FileResponse {
     private LocalDateTime updatedAt;
 
     public static FileResponse from(ManagedFile file) {
+        // DB entity を API レスポンス用 DTO に変換する。
         FileResponse response = new FileResponse();
         response.setId(file.getId());
+        response.setOwnerId(file.getOwnerId());
         response.setOriginalFilename(file.getOriginalFilename());
         response.setContentType(file.getContentType());
         response.setFileSize(file.getFileSize());
@@ -32,6 +36,14 @@ public class FileResponse {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Long getOwnerId() {
+        return ownerId;
+    }
+
+    public void setOwnerId(Long ownerId) {
+        this.ownerId = ownerId;
     }
 
     public String getOriginalFilename() {

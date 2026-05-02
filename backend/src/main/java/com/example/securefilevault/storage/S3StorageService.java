@@ -17,6 +17,7 @@ import java.io.InputStream;
 @Service
 public class S3StorageService {
 
+    // S3 操作だけを担当し、業務権限や DB 更新は各 UseCase Service に任せる。
     private final S3Client s3Client;
     private final AwsProperties awsProperties;
 
@@ -26,6 +27,7 @@ public class S3StorageService {
     }
 
     public void upload(String s3Key, InputStream inputStream, long contentLength, String contentType) {
+        // 指定された object key に対して、渡された InputStream をそのまま S3 に保存する。
         PutObjectRequest request = PutObjectRequest.builder()
                 .bucket(bucket())
                 .key(s3Key)
@@ -37,6 +39,7 @@ public class S3StorageService {
     }
 
     public byte[] download(String s3Key) {
+        // S3 object を byte 配列として取得し、Controller から PDF レスポンスとして返す。
         GetObjectRequest request = GetObjectRequest.builder()
                 .bucket(bucket())
                 .key(s3Key)
@@ -47,6 +50,7 @@ public class S3StorageService {
     }
 
     public void delete(String s3Key) {
+        // 指定された object key の S3 object を削除する。
         DeleteObjectRequest request = DeleteObjectRequest.builder()
                 .bucket(bucket())
                 .key(s3Key)
@@ -56,6 +60,7 @@ public class S3StorageService {
     }
 
     public boolean exists(String s3Key) {
+        // object 本体を取得せず、HEAD リクエストで存在確認だけを行う。
         HeadObjectRequest request = HeadObjectRequest.builder()
                 .bucket(bucket())
                 .key(s3Key)
@@ -75,6 +80,7 @@ public class S3StorageService {
     }
 
     private String bucket() {
+        // bucket 名は application.yml または環境変数 AWS_S3_BUCKET から取得する。
         return awsProperties.getS3().getBucket();
     }
 }

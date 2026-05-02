@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 public class ErrorResponse {
 
+    // API エラーをフロントエンドで扱いやすい共通形式にする。
     private LocalDateTime timestamp;
     private int status;
     private String error;

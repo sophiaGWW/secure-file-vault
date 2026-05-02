@@ -22,6 +22,7 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    // JWT 認証フィルターと認証失敗時の JSON レスポンス処理を注入する。
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
 
@@ -35,6 +36,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        // REST API 前提のため CSRF とセッションを使わず、JWT で stateless に認証する。
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -59,11 +61,13 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
+        // パスワードは平文保存せず、BCrypt hash として保存する。
         return new BCryptPasswordEncoder();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        // ローカル React 開発サーバーから Spring Boot API を呼び出せるようにする。
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:5173"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));

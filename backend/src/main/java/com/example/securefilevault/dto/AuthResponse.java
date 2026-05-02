@@ -2,6 +2,7 @@ package com.example.securefilevault.dto;
 
 public class AuthResponse {
 
+    // ログイン・登録成功時に、JWT と画面表示用ユーザー情報をまとめて返す DTO。
     private String token;
     private UserResponse user;
 

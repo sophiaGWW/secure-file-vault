@@ -4,9 +4,11 @@ import jakarta.validation.constraints.NotBlank;
 
 public class LoginRequest {
 
+    // ログイン時に必要な username。空文字は許可しない。
     @NotBlank(message = "username is required")
     private String username;
 
+    // ログイン時に必要な password。空文字は許可しない。
     @NotBlank(message = "password is required")
     private String password;
 

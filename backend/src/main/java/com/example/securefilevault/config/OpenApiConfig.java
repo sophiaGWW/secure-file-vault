@@ -10,6 +10,7 @@ public class OpenApiConfig {
 
     @Bean
     public OpenAPI secureFileVaultOpenApi() {
+        // Swagger UI に表示する API タイトルと説明を設定する。
         return new OpenAPI()
                 .info(new Info()
                         .title("Secure File Vault API")

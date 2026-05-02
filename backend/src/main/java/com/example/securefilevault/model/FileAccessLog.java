@@ -2,6 +2,7 @@ package com.example.securefilevault.model;
 
 public class FileAccessLog {
 
+    // file_access_logs テーブルに対応する操作監査ログ entity。
     private Long fileId;
     private Long userId;
     private String action;

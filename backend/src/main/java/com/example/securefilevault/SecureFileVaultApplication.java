@@ -10,6 +10,7 @@ import org.mybatis.spring.annotation.MapperScan;
 @ConfigurationPropertiesScan
 public class SecureFileVaultApplication {
 
+    // Spring Boot アプリケーションの起動入口。
     public static void main(String[] args) {
         SpringApplication.run(SecureFileVaultApplication.class, args);
     }

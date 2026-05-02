@@ -1,3 +1,4 @@
+/* アプリ全体の基本色・フォント設定。 */
 :root {
   color: #17202a;
   background: #f5f7fb;
@@ -6,20 +7,24 @@
     sans-serif;
 }
 
+/* すべての要素で border をサイズ計算に含める。 */
 * {
   box-sizing: border-box;
 }
 
+/* モバイル幅でも横スクロールが出にくいよう最小幅を設定する。 */
 body {
   margin: 0;
   min-width: 320px;
 }
 
+/* ボタンと入力欄はブラウザ差異を減らすため同じ font を継承する。 */
 button,
 input {
   font: inherit;
 }
 
+/* 主要アクションボタンの共通スタイル。 */
 button {
   min-height: 42px;
   padding: 0 16px;
@@ -36,6 +41,7 @@ button:disabled {
   opacity: 0.65;
 }
 
+/* ログイン画面とダッシュボード画面の共通ページ余白。 */
 .center-page,
 .dashboard-page {
   min-height: 100vh;
@@ -43,12 +49,14 @@ button:disabled {
   background: #f5f7fb;
 }
 
+/* 認証画面はカードを中央配置する。 */
 .center-page {
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+/* カード・パネルの共通外観。 */
 .auth-card,
 .panel {
   border: 1px solid #d8e0ea;
@@ -57,11 +65,13 @@ button:disabled {
   box-shadow: 0 16px 40px rgba(20, 35, 55, 0.08);
 }
 
+/* 認証カードはフォームが読みやすい幅に制限する。 */
 .auth-card {
   width: min(420px, 100%);
   padding: 32px;
 }
 
+/* 小さなカテゴリラベル。 */
 .eyebrow {
   margin: 0 0 10px;
   color: #2f6f4e;
@@ -82,6 +92,7 @@ h1 {
   font-size: 2rem;
 }
 
+/* フォーム項目を縦に並べ、入力欄の間隔を揃える。 */
 .form-stack {
   display: grid;
   gap: 18px;
@@ -102,6 +113,7 @@ input {
   border-radius: 6px;
 }
 
+/* エラーと成功メッセージは状態がすぐ分かる色にする。 */
 .error-message {
   margin: 0;
   color: #b42318;
@@ -114,6 +126,7 @@ input {
   font-weight: 700;
 }
 
+/* 画面切り替え用の補助ボタン。 */
 .link-button {
   width: 100%;
   margin-top: 18px;
@@ -121,12 +134,14 @@ input {
   color: #1f5fbf;
 }
 
+/* ダッシュボードは上から順に情報を積む layout。 */
 .dashboard-page {
   display: grid;
   align-content: start;
   gap: 24px;
 }
 
+/* ヘッダーではタイトルとユーザー操作を左右に配置する。 */
 .dashboard-header {
   display: flex;
   align-items: center;
@@ -154,17 +169,32 @@ input {
   color: #51606f;
 }
 
+/* アップロードフォームの縦並び layout。 */
 .upload-box {
   display: grid;
   gap: 18px;
 }
 
-.file-input {
-  max-width: 420px;
+.hidden-file-input {
+  display: none;
+}
+
+.file-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 560px;
   padding: 10px;
+  border: 1px solid #b8c3cf;
+  border-radius: 6px;
   background: #ffffff;
 }
 
+.file-picker span {
+  overflow-wrap: anywhere;
+}
+
+/* 選択中ファイルの metadata を横並びで確認できるようにする。 */
 .file-preview {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -192,6 +222,7 @@ input {
   overflow-wrap: anywhere;
 }
 
+/* ファイル一覧テーブルの基本表示。 */
 table {
   width: 100%;
   border-collapse: collapse;
@@ -217,6 +248,20 @@ th {
   margin-bottom: 12px;
 }
 
+/* 一括削除ボタンと選択件数を一覧上部にまとめる。 */
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.table-toolbar p {
+  margin-bottom: 0;
+}
+
+/* テーブル内の操作ボタンを横並びにする。 */
 .table-actions {
   display: flex;
   flex-wrap: wrap;
@@ -229,16 +274,25 @@ th {
   font-size: 0.88rem;
 }
 
+/* ダウンロードなどの副次アクション。 */
 .secondary-button {
   border: 1px solid #b8c3cf;
   background: #ffffff;
   color: #1f5fbf;
 }
 
+/* 削除アクションは危険操作として赤色にする。 */
 .danger-button {
   background: #b42318;
 }
 
+.row-checkbox {
+  width: 18px;
+  min-height: 18px;
+  padding: 0;
+}
+
+/* ファイル状態を badge として視認しやすく表示する。 */
 .status-badge {
   display: inline-flex;
   align-items: center;
@@ -267,6 +321,7 @@ th {
   color: #9b1c1c;
 }
 
+/* 720px 以下では縦積みにして狭い画面でも崩れにくくする。 */
 @media (max-width: 720px) {
   .center-page,
   .dashboard-page {

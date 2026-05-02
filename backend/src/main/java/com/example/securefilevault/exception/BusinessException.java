@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 
 public class BusinessException extends RuntimeException {
 
+    // 業務エラーごとに返したい HTTP status を保持する。
     private final HttpStatus status;
 
     public BusinessException(HttpStatus status, String message) {

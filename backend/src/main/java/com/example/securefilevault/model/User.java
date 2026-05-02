@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 public class User {
 
+    // users テーブルに対応する認証ユーザー entity。
     private Long id;
     private String username;
     private String passwordHash;

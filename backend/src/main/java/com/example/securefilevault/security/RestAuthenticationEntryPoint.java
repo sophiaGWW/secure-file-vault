@@ -15,6 +15,7 @@ import java.io.IOException;
 @Component
 public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
+    // 未認証アクセス時も HTML ではなく JSON エラーを返すために使用する。
     private final ObjectMapper objectMapper;
 
     public RestAuthenticationEntryPoint(ObjectMapper objectMapper) {
@@ -27,6 +28,7 @@ public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
             HttpServletResponse response,
             AuthenticationException authException
     ) throws IOException {
+        // Spring Security のデフォルトログイン画面へ遷移させず、REST API 用の 401 を返す。
         response.setStatus(HttpStatus.UNAUTHORIZED.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         objectMapper.writeValue(response.getWriter(),

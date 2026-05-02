@@ -31,6 +31,7 @@ import java.util.List;
 @RequestMapping("/api/files")
 public class FileController {
 
+    // Controller は HTTP 入出力だけを担当し、業務処理は各 Service に委譲する。
     private final FileUploadService fileUploadService;
     private final FileDownloadService fileDownloadService;
     private final FileDeleteService fileDeleteService;
@@ -54,6 +55,7 @@ public class FileController {
             @RequestParam("file") MultipartFile file,
             HttpServletRequest servletRequest
     ) {
+        // multipart/form-data のファイルを受け取り、アップロード業務 Service に渡す。
         return fileUploadService.upload(user, file, getClientIp(servletRequest));
     }
 
@@ -64,6 +66,7 @@ public class FileController {
             HttpServletRequest servletRequest
     ) {
         FileDownloadResult download = fileDownloadService.download(user, fileId, getClientIp(servletRequest));
+        // 日本語ファイル名でも壊れにくいよう UTF-8 の Content-Disposition を設定する。
         ContentDisposition contentDisposition = ContentDisposition.attachment()
                 .filename(download.filename(), StandardCharsets.UTF_8)
                 .build();
@@ -83,15 +86,18 @@ public class FileController {
             @PathVariable Long fileId,
             HttpServletRequest servletRequest
     ) {
+        // 削除成功時はレスポンス body を返さず 204 No Content にする。
         fileDeleteService.delete(user, fileId, getClientIp(servletRequest));
     }
 
     @GetMapping
     public List<FileResponse> listFiles(@AuthenticationPrincipal User user) {
+        // ファイル一覧はログイン中ユーザーのものだけを返す。
         return fileListService.listFiles(user);
     }
 
     private String getClientIp(HttpServletRequest request) {
+        // Reverse Proxy 配下では X-Forwarded-For の先頭を実クライアント IP として扱う。
         String forwardedFor = request.getHeader("X-Forwarded-For");
         if (forwardedFor != null && !forwardedFor.isBlank()) {
             return forwardedFor.split(",")[0].trim();

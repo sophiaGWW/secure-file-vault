@@ -96,9 +96,9 @@ JWT_SECRET=dev-only-change-me-secure-file-vault-jwt-secret-please-override
 
 ```text
 POST   /api/files/upload
+GET    /api/files
 GET    /api/files/{fileId}/download
 DELETE /api/files/{fileId}
-GET  /api/files
 ```
 
 上传流程：
@@ -114,7 +114,12 @@ GET  /api/files
 
 下载和删除流程：
 
-- `FileDownloadService` 根据 `fileId` 查询 DB，校验文件存在和当前用户权限，然后通过 `S3StorageService.download(s3Key)` 下载 S3 文件，并以 `application/pdf` 返回给前端。
+- `GET /api/files` 只返回 DB metadata，不返回文件本体。普通用户只能看到 `owner_id` 等于自己 userId 的文件，`ADMIN` 用户可以看到所有未删除文件。
+- `FileDownloadService` 根据 `fileId` 查询 DB metadata，校验文件存在、`status = AVAILABLE`，并通过 `owner_id` 做权限校验。
+- 普通用户只能下载 `owner_id` 等于自己 userId 的文件，`ADMIN` 可以下载所有文件。
+- 权限校验通过后，后端使用 `String.valueOf(fileId)` 作为 S3 object key，调用 `S3StorageService.download(objectKey)` 从 S3 获取文件。
+- 下载响应使用 `application/pdf`，并通过 `original_filename` 设置 `Content-Disposition` 文件名。
+- 下载成功时记录 `DOWNLOAD / SUCCESS` 日志；文件不存在记录 `DOWNLOAD / NOT_FOUND`；无权限记录 `DOWNLOAD / ACCESS_DENIED`。
 - `FileDeleteService` 根据 `fileId` 查询 DB，校验当前用户权限，然后通过 `S3StorageService.delete(s3Key)` 删除 S3 object，并记录删除日志。
 
 允许上传的类型：
@@ -126,7 +131,7 @@ application/pdf
 S3 object key 规则：
 
 ```text
-s3Key = files.id
+objectKey = String.valueOf(fileId)
 ```
 
 例如 DB 主键是 `123`，则 S3 object key 也是 `123`。
@@ -148,7 +153,7 @@ updated_at
 
 ```text
 upload(String s3Key, InputStream inputStream, long contentLength, String contentType)
-download(String s3Key)
+download(String objectKey)
 delete(String s3Key)
 exists(String s3Key)
 ```

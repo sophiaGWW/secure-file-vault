@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 
 public class ManagedFile {
 
+    // files テーブルに対応する metadata entity。ファイル本体の byte 配列は持たない。
     private Long id;
     private Long ownerId;
     private String originalFilename;

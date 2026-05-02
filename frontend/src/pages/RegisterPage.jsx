@@ -1,10 +1,12 @@
 import { useState } from 'react';
 
 function RegisterPage({ error, onRegister, onError, onGoToLogin }) {
+  // 登録フォームの入力状態と送信中状態を管理する。
   const [form, setForm] = useState({ username: '', password: '' });
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event) {
+    // form submit の標準遷移を止め、React 側で API 呼び出しを行う。
     event.preventDefault();
     setSubmitting(true);
     try {
@@ -19,11 +21,11 @@ function RegisterPage({ error, onRegister, onError, onGoToLogin }) {
   return (
     <main className="center-page">
       <section className="auth-card">
-        <p className="eyebrow">Secure File Vault</p>
-        <h1>Register</h1>
+        <p className="eyebrow">セキュアファイル保管庫</p>
+        <h1>新規登録</h1>
         <form onSubmit={handleSubmit} className="form-stack">
           <label>
-            Username
+            ユーザー名
             <input
               value={form.username}
               onChange={(event) => setForm({ ...form, username: event.target.value })}
@@ -32,7 +34,7 @@ function RegisterPage({ error, onRegister, onError, onGoToLogin }) {
             />
           </label>
           <label>
-            Password
+            パスワード
             <input
               type="password"
               value={form.password}
@@ -44,11 +46,11 @@ function RegisterPage({ error, onRegister, onError, onGoToLogin }) {
           </label>
           {error && <p className="error-message">{error}</p>}
           <button type="submit" disabled={submitting}>
-            {submitting ? 'Creating account...' : 'Register'}
+            {submitting ? '登録中...' : '登録'}
           </button>
         </form>
         <button className="link-button" type="button" onClick={onGoToLogin}>
-          Back to login
+          ログインへ戻る
         </button>
       </section>
     </main>

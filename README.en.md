@@ -96,9 +96,9 @@ Backend APIs:
 
 ```text
 POST   /api/files/upload
+GET    /api/files
 GET    /api/files/{fileId}/download
 DELETE /api/files/{fileId}
-GET  /api/files
 ```
 
 Upload flow:
@@ -114,7 +114,12 @@ Upload flow:
 
 Download and delete flow:
 
-- `FileDownloadService` queries DB by `fileId`, checks existence and ownership, calls `S3StorageService.download(s3Key)`, and returns the file as `application/pdf`.
+- `GET /api/files` returns metadata only, never the file body. Regular users can see only files whose `owner_id` matches their userId; `ADMIN` users can see all non-deleted files.
+- `FileDownloadService` queries DB metadata by `fileId`, checks that the file exists, checks `status = AVAILABLE`, and validates access by `owner_id`.
+- Regular users can download only files whose `owner_id` matches their userId; `ADMIN` can download every file.
+- After authorization succeeds, the backend uses `String.valueOf(fileId)` as the S3 object key and calls `S3StorageService.download(objectKey)` to fetch the file from S3.
+- The download response uses `application/pdf` and sets the `Content-Disposition` filename from `original_filename`.
+- Successful downloads write a `DOWNLOAD / SUCCESS` log; missing files write `DOWNLOAD / NOT_FOUND`; unauthorized access writes `DOWNLOAD / ACCESS_DENIED`.
 - `FileDeleteService` queries DB by `fileId`, checks ownership, calls `S3StorageService.delete(s3Key)`, and writes a delete log.
 
 Allowed content types:
@@ -126,7 +131,7 @@ application/pdf
 S3 object key rule:
 
 ```text
-s3Key = files.id
+objectKey = String.valueOf(fileId)
 ```
 
 For example, if the DB primary key is `123`, the S3 object key is also `123`.
@@ -148,7 +153,7 @@ updated_at
 
 ```text
 upload(String s3Key, InputStream inputStream, long contentLength, String contentType)
-download(String s3Key)
+download(String objectKey)
 delete(String s3Key)
 exists(String s3Key)
 ```

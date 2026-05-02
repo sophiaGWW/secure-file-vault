@@ -1,30 +1,38 @@
 spring:
   application:
+    # Spring Boot アプリケーション名。
     name: secure-file-vault
   datasource:
+    # DB 接続情報。ローカル開発では環境変数で上書きできる。
     url: ${DB_URL:jdbc:mysql://localhost:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:password}
     driver-class-name: com.mysql.cj.jdbc.Driver
   sql:
     init:
+      # 開発用に起動時 schema.sql を実行する。
       mode: always
       schema-locations: classpath:schema.sql
 
 mybatis:
   configuration:
+    # snake_case の DB カラムを Java の camelCase property に自動変換する。
     map-underscore-to-camel-case: true
 
 springdoc:
   swagger-ui:
+    # Swagger UI のアクセスパス。
     path: /swagger-ui.html
 
 app:
   jwt:
+    # JWT 署名鍵と有効期限。実運用では必ず環境変数で上書きする。
     secret: ${JWT_SECRET:dev-only-change-me-secure-file-vault-jwt-secret-please-override}
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
 
 aws:
+  # S3 bucket と同じ region を指定する。
   region: ap-northeast-1
   s3:
+    # ファイル本体を保存する private bucket。
     bucket: secure-file-vault-dev-sophia-20260502

@@ -14,8 +14,10 @@ class SecureFileVaultApplicationTests {
 
     @Test
     void healthEndpointReturnsOk() throws Exception {
+        // Spring Context 全体ではなく Controller 単体で health endpoint を検証する。
         MockMvc mockMvc = standaloneSetup(new HealthController()).build();
 
+        // /api/health が 200 OK と "OK" を返すことを確認する。
         mockMvc.perform(get("/api/health"))
                 .andExpect(status().isOk())
                 .andExpect(content().string("OK"));
