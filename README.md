@@ -2,7 +2,7 @@
 
 [日本語](README.md) | [中文](README.zh-CN.md) | [English](README.en.md)
 
-Spring Boot と AWS S3 を使った、権限制御付きファイル管理システムの個人開発プロジェクトです。既存システム改修の想定として、これまで DB BLOB に保存していた PDF ファイルを AWS S3 保存へ移行し、DB には metadata だけを保存します。日本の IT 面接で説明しやすいように、JWT 認証、バックエンド経由の multipart アップロード、ユーザー単位のアクセス制御、DB メタデータ管理、操作ログを段階的に実装します。
+Spring Boot と AWS S3 を使った、権限制御付きファイル管理システムです。既存システム改修の想定として、これまで DB BLOB に保存していた PDF ファイルを AWS S3 保存へ移行し、DB には metadata だけを保存します。JWT 認証、バックエンド経由の multipart アップロード、ユーザー単位のアクセス制御、DB メタデータ管理、操作ログを段階的に実装します。
 
 ## フェーズ 1 の範囲
 
@@ -86,7 +86,7 @@ DB_PASSWORD=password
 JWT_SECRET=dev-only-change-me-secure-file-vault-jwt-secret-please-override
 ```
 
-面接やデモでは、`JWT_SECRET` を 32 文字以上のランダム文字列に変更してください。
+本番環境や共有環境では、`JWT_SECRET` を 32 文字以上のランダム文字列に変更してください。
 
 ## S3 Backend Upload
 

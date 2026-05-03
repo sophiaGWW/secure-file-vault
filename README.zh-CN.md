@@ -2,7 +2,7 @@
 
 [日本語](README.md) | [中文](README.zh-CN.md) | [English](README.en.md)
 
-这是一个基于 Spring Boot + AWS S3 的权限控制文件管理系统个人项目。项目模拟既存系统改修场景：原本 PDF 文件以 DB BLOB 保存，现在迁移为文件本体保存到 AWS S3，DB 只保存 metadata。项目会按阶段实现 JWT 认证、后端 multipart 上传、用户级权限控制、文件元数据 DB 管理和操作日志，目标是可以上传到 GitHub，并且适合在日本 IT 面试中讲解。
+这是一个基于 Spring Boot + AWS S3 的权限控制文件管理系统。项目模拟既存系统改修场景：原本 PDF 文件以 DB BLOB 保存，现在迁移为文件本体保存到 AWS S3，DB 只保存 metadata。项目会按阶段实现 JWT 认证、后端 multipart 上传、用户级权限控制、文件元数据 DB 管理和操作日志。
 
 ## 第一阶段范围
 
@@ -86,7 +86,7 @@ DB_PASSWORD=password
 JWT_SECRET=dev-only-change-me-secure-file-vault-jwt-secret-please-override
 ```
 
-面试或正式演示时，请将 `JWT_SECRET` 改成至少 32 字符的随机字符串，不要使用默认值。
+生产或共享环境中，请将 `JWT_SECRET` 改成至少 32 字符的随机字符串，不要使用默认值。
 
 ## S3 Backend Upload
 

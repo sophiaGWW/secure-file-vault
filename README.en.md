@@ -2,7 +2,7 @@
 
 [日本語](README.md) | [中文](README.zh-CN.md) | [English](README.en.md)
 
-A personal portfolio project for a permission-controlled file management system built with Spring Boot and AWS S3. This version simulates a legacy-system migration: PDF files that used to be stored as DB BLOBs are now stored in AWS S3, while the DB keeps only file metadata. The project is designed to be easy to explain in Japanese IT interviews, including JWT authentication, backend multipart upload, user-level access control, database-managed file metadata, and operation logs.
+A permission-controlled file management system built with Spring Boot and AWS S3. This version simulates a legacy-system migration: PDF files that used to be stored as DB BLOBs are now stored in AWS S3, while the DB keeps only file metadata. The project includes JWT authentication, backend multipart upload, user-level access control, database-managed file metadata, and operation logs.
 
 ## Phase 1 Scope
 
@@ -86,7 +86,7 @@ DB_PASSWORD=password
 JWT_SECRET=dev-only-change-me-secure-file-vault-jwt-secret-please-override
 ```
 
-For interviews or real demos, replace `JWT_SECRET` with a random string of at least 32 characters.
+For production or shared environments, replace `JWT_SECRET` with a random string of at least 32 characters.
 
 ## S3 Backend Upload
 
