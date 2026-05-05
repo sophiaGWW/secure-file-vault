@@ -46,6 +46,23 @@ public interface FileMapper {
     """)
     ManagedFile findById(Long id);
 
+    @Select("""
+            SELECT COALESCE(SUM(file_size), 0)
+            FROM files
+            WHERE owner_id = #{ownerId}
+              AND status IN ('AVAILABLE', 'UPLOADING')
+            """)
+    long sumActiveFileSizeByOwnerId(Long ownerId);
+
+    @Select("""
+            SELECT COUNT(*)
+            FROM files
+            WHERE owner_id = #{ownerId}
+              AND status IN ('AVAILABLE', 'UPLOADING')
+              AND created_at >= CURRENT_DATE()
+            """)
+    int countTodayActiveUploadsByOwnerId(Long ownerId);
+
     // S3 処理の結果に応じて UPLOADING / AVAILABLE / FAILED / DELETED を更新する。
     @Update("""
             UPDATE files

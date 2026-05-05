@@ -15,6 +15,8 @@ public class RegisterRequest {
     @Size(min = 8, max = 100, message = "password must be between 8 and 100 characters")
     private String password;
 
+    private String inviteCode;
+
     public String getUsername() {
         return username;
     }
@@ -29,5 +31,13 @@ public class RegisterRequest {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public String getInviteCode() {
+        return inviteCode;
+    }
+
+    public void setInviteCode(String inviteCode) {
+        this.inviteCode = inviteCode;
     }
 }

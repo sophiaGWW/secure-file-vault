@@ -8,6 +8,7 @@ import com.example.securefilevault.exception.BusinessException;
 import com.example.securefilevault.mapper.UserMapper;
 import com.example.securefilevault.model.User;
 import com.example.securefilevault.security.JwtService;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -20,15 +21,24 @@ public class AuthService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final String registrationInviteCode;
 
-    public AuthService(UserMapper userMapper, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthService(
+            UserMapper userMapper,
+            PasswordEncoder passwordEncoder,
+            JwtService jwtService,
+            @Value("${app.registration.invite-code:}") String registrationInviteCode
+    ) {
         this.userMapper = userMapper;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.registrationInviteCode = registrationInviteCode;
     }
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
+        validateInviteCode(request.getInviteCode());
+
         String username = request.getUsername().trim();
 
         // 同じ username は登録不可にする。
@@ -48,6 +58,18 @@ public class AuthService {
         User savedUser = userMapper.findByUsername(username);
         String token = jwtService.generateToken(savedUser);
         return new AuthResponse(token, UserResponse.from(savedUser));
+    }
+
+    private void validateInviteCode(String inviteCode) {
+        String configuredInviteCode = registrationInviteCode == null ? "" : registrationInviteCode.trim();
+        if (configuredInviteCode.isEmpty()) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "Registration is currently disabled");
+        }
+
+        String requestInviteCode = inviteCode == null ? "" : inviteCode.trim();
+        if (!configuredInviteCode.equals(requestInviteCode)) {
+            throw new BusinessException(HttpStatus.FORBIDDEN, "Invalid registration invite code");
+        }
     }
 
     public AuthResponse login(LoginRequest request) {
