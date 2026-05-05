@@ -80,7 +80,7 @@ CREATE DATABASE secure_file_vault CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_
 Default configuration:
 
 ```text
-DB_URL=jdbc:mysql://localhost:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+DB_URL=jdbc:mysql://localhost:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B09:00&forceConnectionTimeZoneToSession=true
 DB_USERNAME=root
 DB_PASSWORD=password
 JWT_SECRET=dev-only-change-me-secure-file-vault-jwt-secret-please-override

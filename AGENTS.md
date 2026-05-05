@@ -236,7 +236,7 @@ backend/src/main/resources/application.yml
 默认数据库配置：
 
 ```text
-DB_URL=jdbc:mysql://localhost:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+DB_URL=jdbc:mysql://localhost:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B09:00&forceConnectionTimeZoneToSession=true
 DB_USERNAME=root
 DB_PASSWORD=password
 ```
