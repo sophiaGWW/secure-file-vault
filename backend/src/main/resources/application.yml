@@ -2,6 +2,11 @@ spring:
   application:
     # Spring Boot アプリケーション名。
     name: secure-file-vault
+  servlet:
+    multipart:
+      # 100MB 超の PDF を S3 Multipart Upload に渡せるよう、アプリ側の受信上限を広げる。
+      max-file-size: 500MB
+      max-request-size: 500MB
   datasource:
     # DB 接続情報。ローカル開発では環境変数で上書きできる。
     url: ${DB_URL:jdbc:mysql://localhost:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
@@ -36,3 +41,7 @@ aws:
   s3:
     # ファイル本体を保存する private bucket。
     bucket: secure-file-vault-dev-sophia-20260502
+    # このサイズを超えた場合のみ S3 Multipart Upload を使う。
+    multipart-upload-threshold: 100MB
+    # Multipart Upload の各 part サイズ。S3 の最小 part サイズ以上にする。
+    multipart-part-size: 16MB

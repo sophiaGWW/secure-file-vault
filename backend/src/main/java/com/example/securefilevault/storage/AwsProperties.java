@@ -1,6 +1,7 @@
 package com.example.securefilevault.storage;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.util.unit.DataSize;
 
 @ConfigurationProperties(prefix = "aws")
 public class AwsProperties {
@@ -30,6 +31,10 @@ public class AwsProperties {
     public static class S3 {
         // ファイル本体を保存する private bucket 名。
         private String bucket;
+        // このサイズを超えるファイルは S3 Multipart Upload で保存する。
+        private DataSize multipartUploadThreshold = DataSize.ofMegabytes(100);
+        // Multipart Upload で 1 part あたりに読み込むサイズ。
+        private DataSize multipartPartSize = DataSize.ofMegabytes(16);
 
         public String getBucket() {
             return bucket;
@@ -37,6 +42,22 @@ public class AwsProperties {
 
         public void setBucket(String bucket) {
             this.bucket = bucket;
+        }
+
+        public DataSize getMultipartUploadThreshold() {
+            return multipartUploadThreshold;
+        }
+
+        public void setMultipartUploadThreshold(DataSize multipartUploadThreshold) {
+            this.multipartUploadThreshold = multipartUploadThreshold;
+        }
+
+        public DataSize getMultipartPartSize() {
+            return multipartPartSize;
+        }
+
+        public void setMultipartPartSize(DataSize multipartPartSize) {
+            this.multipartPartSize = multipartPartSize;
         }
     }
 }
