@@ -8,6 +8,7 @@ import com.example.securefilevault.model.FileAccessLog;
 import com.example.securefilevault.model.ManagedFile;
 import com.example.securefilevault.model.User;
 import com.example.securefilevault.storage.S3StorageService;
+import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -26,19 +27,26 @@ public class FileUploadService {
     private final FileMapper fileMapper;
     private final FileAccessLogMapper accessLogMapper;
     private final S3StorageService s3StorageService;
+    private final long maxTotalStorageBytes;
+    private final int maxDailyUploadCount;
 
     public FileUploadService(
             FileMapper fileMapper,
             FileAccessLogMapper accessLogMapper,
-            S3StorageService s3StorageService
+            S3StorageService s3StorageService,
+            @Value("${app.upload-limits.max-total-storage-bytes:157286400}") long maxTotalStorageBytes,
+            @Value("${app.upload-limits.max-daily-upload-count:10}") int maxDailyUploadCount
     ) {
         this.fileMapper = fileMapper;
         this.accessLogMapper = accessLogMapper;
         this.s3StorageService = s3StorageService;
+        this.maxTotalStorageBytes = maxTotalStorageBytes;
+        this.maxDailyUploadCount = maxDailyUploadCount;
     }
 
     public FileResponse upload(User user, MultipartFile multipartFile, String ipAddress) {
         validateUploadFile(multipartFile);
+        validateUserUploadLimits(user.getId(), multipartFile.getSize());
 
         // 先に DB metadata を登録し、生成された id を S3 object key として使う。
         ManagedFile file = new ManagedFile();
@@ -86,6 +94,24 @@ public class FileUploadService {
 
         if (!MediaType.APPLICATION_PDF_VALUE.equals(multipartFile.getContentType())) {
             throw new BusinessException(HttpStatus.BAD_REQUEST, "Only PDF files are allowed");
+        }
+    }
+
+    private void validateUserUploadLimits(Long ownerId, long uploadSizeBytes) {
+        long currentStorageBytes = fileMapper.sumActiveFileSizeByOwnerId(ownerId);
+        if (currentStorageBytes + uploadSizeBytes > maxTotalStorageBytes) {
+            throw new BusinessException(
+                    HttpStatus.PAYLOAD_TOO_LARGE,
+                    "User storage limit exceeded. Maximum storage is 150MB"
+            );
+        }
+
+        int todayUploadCount = fileMapper.countTodayActiveUploadsByOwnerId(ownerId);
+        if (todayUploadCount >= maxDailyUploadCount) {
+            throw new BusinessException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Daily upload limit exceeded. Maximum uploads per day is 10"
+            );
         }
     }
 

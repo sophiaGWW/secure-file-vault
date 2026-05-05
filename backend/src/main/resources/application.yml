@@ -36,6 +36,11 @@ app:
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
   cors:
     allowed-origins: "${CORS_ALLOWED_ORIGINS:http://localhost:5173}"
+  registration:
+    invite-code: "${REGISTRATION_INVITE_CODE:}"
+  upload-limits:
+    max-total-storage-bytes: ${UPLOAD_MAX_TOTAL_STORAGE_BYTES:157286400}
+    max-daily-upload-count: ${UPLOAD_MAX_DAILY_UPLOAD_COUNT:10}
 
 aws:
   region: "${AWS_REGION:ap-northeast-1}"

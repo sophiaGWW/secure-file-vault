@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { uploadFile } from '../api/fileApi.js';
 
 const ALLOWED_CONTENT_TYPES = ['application/pdf'];
-const MAX_FILE_SIZE = 500 * 1024 * 1024;
+const MAX_FILE_SIZE = 150 * 1024 * 1024;
 
 function FileUpload({ onUploadComplete }) {
   // 選択中ファイル、成功メッセージ、エラー、送信中状態を管理する。
@@ -104,7 +104,7 @@ function validateFile(file) {
   }
 
   if (file.size > MAX_FILE_SIZE) {
-    return 'ファイルサイズは 500MB 以下にしてください。';
+    return 'ファイルサイズは 150MB 以下にしてください。';
   }
 
   return '';

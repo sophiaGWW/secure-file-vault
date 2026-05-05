@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 function RegisterPage({ error, onRegister, onError, onGoToLogin }) {
   // 登録フォームの入力状態と送信中状態を管理する。
-  const [form, setForm] = useState({ username: '', password: '' });
+  const [form, setForm] = useState({ username: '', password: '', inviteCode: '' });
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event) {
@@ -41,6 +41,16 @@ function RegisterPage({ error, onRegister, onError, onGoToLogin }) {
               onChange={(event) => setForm({ ...form, password: event.target.value })}
               autoComplete="new-password"
               minLength={8}
+              required
+            />
+          </label>
+          <label>
+            招待コード
+            <input
+              type="password"
+              value={form.inviteCode}
+              onChange={(event) => setForm({ ...form, inviteCode: event.target.value })}
+              autoComplete="off"
               required
             />
           </label>
