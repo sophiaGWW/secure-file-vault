@@ -24,6 +24,7 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
+    // JWT 認証フィルターと REST API 用 401 応答を SecurityFilterChain に組み込む。
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final RestAuthenticationEntryPoint authenticationEntryPoint;
     private final String allowedOrigins;
@@ -40,6 +41,7 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        // JWT ベースの REST API として、CSRF 無効化・CORS・ステートレスセッションを設定する。
         http
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -64,18 +66,21 @@ public class SecurityConfig {
 
     @Bean
     public PasswordEncoder passwordEncoder() {
+        // パスワードは BCrypt で hash 化して users.password_hash に保存する。
         return new BCryptPasswordEncoder();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+        // 環境変数 CORS_ALLOWED_ORIGINS ではカンマ区切りで複数 origin を指定できる。
         List<String> origins = Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim)
                 .filter(origin -> !origin.isEmpty())
                 .distinct()
                 .toList();
 
+        // 設定が空の場合はローカル Vite 開発サーバーだけを許可する。
         configuration.setAllowedOrigins(origins.isEmpty() ? List.of("http://localhost:5173") : origins);
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));

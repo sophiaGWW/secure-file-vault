@@ -32,11 +32,13 @@ import org.mockito.ArgumentCaptor;
 
 class S3StorageServiceTest {
 
+    // S3 Multipart Upload の閾値検証で使う byte 単位の定数。
     private static final long ONE_MIB = 1024L * 1024;
     private static final long FIVE_MIB = 5 * ONE_MIB;
 
     @Test
     void uploadUsesPutObjectWhenContentLengthIsAtThreshold() {
+        // 閾値ちょうどのファイルは単一 putObject のまま送信する。
         S3Client s3Client = mock(S3Client.class);
         S3StorageService storageService = new S3StorageService(s3Client, properties(100 * ONE_MIB, 16 * ONE_MIB));
 
@@ -55,6 +57,7 @@ class S3StorageServiceTest {
 
     @Test
     void uploadUsesMultipartUploadWhenContentLengthIsAboveThreshold() {
+        // 閾値を超えたファイルは part ごとに分割して Multipart Upload を完了する。
         S3Client s3Client = mock(S3Client.class);
         S3StorageService storageService = new S3StorageService(s3Client, properties(FIVE_MIB, FIVE_MIB));
         long contentLength = 12 * ONE_MIB + 123;
@@ -94,6 +97,7 @@ class S3StorageServiceTest {
 
     @Test
     void uploadAbortsMultipartUploadWhenPartUploadFails() {
+        // part upload の途中失敗時は未完了の multipart upload を abort する。
         S3Client s3Client = mock(S3Client.class);
         S3StorageService storageService = new S3StorageService(s3Client, properties(FIVE_MIB, FIVE_MIB));
         long contentLength = 10 * ONE_MIB;
@@ -120,6 +124,7 @@ class S3StorageServiceTest {
     }
 
     private static AwsProperties properties(long thresholdBytes, long partSizeBytes) {
+        // 実 AWS に依存しないよう、テスト用 bucket とサイズ設定だけを組み立てる。
         AwsProperties properties = new AwsProperties();
         AwsProperties.S3 s3 = new AwsProperties.S3();
         s3.setBucket("secure-file-vault-test");
@@ -130,6 +135,7 @@ class S3StorageServiceTest {
     }
 
     private static InputStream fixedSizeStream(long size) {
+        // 大容量 byte 配列を作らず、指定サイズ分だけ 0 を返す InputStream を用意する。
         return new InputStream() {
             private long remaining = size;
 

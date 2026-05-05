@@ -9,11 +9,13 @@ spring:
       max-file-size: 500MB
       max-request-size: 500MB
   datasource:
+    # DB の TIMESTAMP と JDBC 変換を日本時間に揃える。
     url: "${DB_URL:jdbc:mysql://secure-file-vault-dev.chuq064e0cy4.ap-northeast-1.rds.amazonaws.com:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B09:00&forceConnectionTimeZoneToSession=true}"
     username: "${DB_USERNAME:admin}"
     password: "${DB_PASSWORD:password}"
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
+      # MySQL セッション側の CURRENT_TIMESTAMP も日本時間で扱う。
       connection-init-sql: "SET time_zone = '+09:00'"
   sql:
     init:
