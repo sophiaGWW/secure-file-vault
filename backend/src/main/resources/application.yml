@@ -1,47 +1,41 @@
+server:
+  port: ${PORT:8080}
+
 spring:
   application:
-    # Spring Boot アプリケーション名。
     name: secure-file-vault
   servlet:
     multipart:
-      # 100MB 超の PDF を S3 Multipart Upload に渡せるよう、アプリ側の受信上限を広げる。
       max-file-size: 500MB
       max-request-size: 500MB
   datasource:
-    # DB 接続情報。
-    url: "jdbc:mysql://secure-file-vault-dev.chuq064e0cy4.ap-northeast-1.rds.amazonaws.com:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
-    username: "admin"
-    password: ${DB_PASSWORD:password}
+    url: "${DB_URL:jdbc:mysql://secure-file-vault-dev.chuq064e0cy4.ap-northeast-1.rds.amazonaws.com:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}"
+    username: "${DB_USERNAME:admin}"
+    password: "${DB_PASSWORD:password}"
     driver-class-name: com.mysql.cj.jdbc.Driver
   sql:
     init:
-      # 開発用に起動時 schema.sql を実行する。
       mode: always
       schema-locations: classpath:schema.sql
 
 mybatis:
   configuration:
-    # snake_case の DB カラムを Java の camelCase property に自動変換する。
     map-underscore-to-camel-case: true
 
 springdoc:
   swagger-ui:
-    # Swagger UI のアクセスパス。
     path: /swagger-ui.html
 
 app:
   jwt:
-    # JWT 署名鍵と有効期限。実運用では必ず環境変数で上書きする。
-    secret: ${JWT_SECRET:dev-only-change-me-secure-file-vault-jwt-secret-please-override}
+    secret: "${JWT_SECRET:dev-only-change-me-secure-file-vault-jwt-secret-please-override}"
     expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
+  cors:
+    allowed-origins: "${CORS_ALLOWED_ORIGINS:http://localhost:5173}"
 
 aws:
-  # S3 bucket と同じ region を指定する。
-  region: ap-northeast-1
+  region: "${AWS_REGION:ap-northeast-1}"
   s3:
-    # ファイル本体を保存する private bucket。
-    bucket: secure-file-vault-dev-sophia-20260502
-    # このサイズを超えた場合のみ S3 Multipart Upload を使う。
+    bucket: "${AWS_S3_BUCKET:secure-file-vault-dev-sophia-20260502}"
     multipart-upload-threshold: 100MB
-    # Multipart Upload の各 part サイズ。S3 の最小 part サイズ以上にする。
     multipart-part-size: 16MB
