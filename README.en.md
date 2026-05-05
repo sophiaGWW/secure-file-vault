@@ -2,183 +2,258 @@
 
 [日本語](README.md) | [中文](README.zh-CN.md) | [English](README.en.md)
 
-A permission-controlled file management system built with Spring Boot and AWS S3. This version simulates a legacy-system migration: PDF files that used to be stored as DB BLOBs are now stored in AWS S3, while the DB keeps only file metadata. The project includes JWT authentication, backend multipart upload, user-level access control, database-managed file metadata, and operation logs.
+Secure File Vault is a deployed permission-controlled file management system for securely uploading, managing, downloading, and deleting PDF files. The application uses a separated frontend/backend architecture: the frontend is hosted on Netlify, the backend is hosted on Render, the database runs on AWS RDS MySQL, and file bodies are stored in a private AWS S3 bucket. The database stores users, file metadata, and audit logs only.
 
-## Phase 1 Scope
+Live site:
 
-This phase only creates the minimum project skeleton:
+```text
+https://imaginative-pavlova-90e5f8.netlify.app/
+```
 
-- `backend/`: Java 17 + Spring Boot 3 backend skeleton
-- `frontend/`: React + Vite frontend skeleton
-- `GET /api/health` returns `OK`
-- The frontend home page displays `Secure File Vault`
-- Initial README files
+## Features
 
-The current phase implements backend multipart upload to S3, backend download, and backend delete APIs.
+- User registration, login, and logout
+- JWT authentication for protected API access
+- Login restoration from the token stored in the browser
+- PDF upload with frontend and backend `application/pdf` validation
+- Maximum upload size of 500MB
+- File list with filename, owner ID, content type, size, status, and creation time
+- PDF download through the backend, with the file body read from S3
+- Single-file deletion
+- Multi-select bulk deletion
+- User-level authorization: regular users can access only their own files
+- Admin users can view and download every non-deleted file
+- Logical deletion: the S3 object is deleted while DB metadata remains as `DELETED`
+- Audit logs for upload, download, and delete operations
+- Unified error responses surfaced by the frontend
+- Swagger UI / OpenAPI documentation
 
-## Planned Tech Stack
+## Tech Stack And Platforms
+
+Frontend:
+
+- React 19
+- Vite 7
+- JavaScript
+- Plain CSS
+- Browser `fetch`
+- JWT stored in `localStorage`
+- Netlify
 
 Backend:
 
 - Java 17
-- Spring Boot 3
-- Spring Security + JWT
+- Spring Boot 3.3.5
+- Spring Web
+- Spring Security
+- JWT: `io.jsonwebtoken:jjwt`
+- BCrypt password hashing
 - MyBatis
-- MySQL
-- AWS SDK for Java v2
-- Swagger / OpenAPI
+- MySQL JDBC Driver
+- AWS SDK for Java v2: S3
+- Springdoc OpenAPI / Swagger UI
+- JUnit 5 + Spring MockMvc
+- Render
 
-Frontend:
+Infrastructure:
 
-- React
-- Vite
-- CSS
+- AWS RDS MySQL
+- AWS S3 private bucket
+- Netlify environment variables
+- Render environment variables
+- CORS configured for the frontend origin
 
-## Authentication
-
-Phase 2 implements login authentication with Spring Security + JWT.
-
-Backend APIs:
+## Architecture
 
 ```text
-POST /api/auth/register
-POST /api/auth/login
-GET  /api/auth/me
+Browser
+  |
+  | React + Vite frontend
+  v
+Netlify
+  |
+  | HTTPS API requests with Authorization: Bearer <JWT>
+  v
+Render
+  |
+  | Spring Boot REST API
+  v
+AWS RDS MySQL  <---- metadata / users / audit logs
+AWS S3         <---- PDF file bodies
 ```
 
-Authentication flow:
+Files are not stored as database BLOBs. During upload, the backend creates file metadata first, then uses the generated `files.id` as the S3 object key. During download, the backend checks metadata, file status, and user permissions before reading the file body from S3 and returning it to the browser.
 
-1. A user registers with `POST /api/auth/register`.
-2. The backend stores a BCrypt password hash, never the plain password.
-3. Register and login responses return a JWT.
-4. The frontend stores the JWT in `localStorage`.
-5. Protected API requests include this header:
+## API
+
+Public endpoints:
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/health` | Backend health check |
+| `POST` | `/api/auth/register` | Register a user |
+| `POST` | `/api/auth/login` | Log in |
+| `GET` | `/swagger-ui.html` | Swagger UI |
+
+JWT-protected endpoints:
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/auth/me` | Get the current user |
+| `POST` | `/api/files/upload` | Upload a PDF file |
+| `GET` | `/api/files` | List files |
+| `GET` | `/api/files/{fileId}/download` | Download a file |
+| `DELETE` | `/api/files/{fileId}` | Delete a file |
+
+Protected requests require this header:
 
 ```text
 Authorization: Bearer <token>
 ```
 
-6. The backend JWT filter validates the token and loads the current user.
-7. Unauthenticated users cannot access `GET /api/auth/me` or the file dashboard.
+## Authorization Rules
 
-`users` table:
+- Unauthenticated users can access only the health check, register, login, and OpenAPI documentation endpoints.
+- Regular `USER` accounts can view, download, and delete only their own files.
+- `ADMIN` accounts can view and download every non-deleted file.
+- File deletion is allowed only for the file owner.
+- Files whose status is not `AVAILABLE` cannot be downloaded.
+- Deleted files are not served as downloadable files.
 
-```text
-id
-username
-password_hash
-role
-created_at
-```
+## File Lifecycle
 
-Before starting the backend, make sure the MySQL database exists:
-
-```sql
-CREATE DATABASE secure_file_vault CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-Default configuration:
+File statuses:
 
 ```text
-DB_URL=jdbc:mysql://localhost:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B09:00&forceConnectionTimeZoneToSession=true
-DB_USERNAME=root
-DB_PASSWORD=password
-JWT_SECRET=dev-only-change-me-secure-file-vault-jwt-secret-please-override
-```
-
-For production or shared environments, replace `JWT_SECRET` with a random string of at least 32 characters.
-
-## S3 Backend Upload
-
-The current implementation simulates migrating an existing system from DB BLOB storage to AWS S3 storage. To reduce frontend migration scope, the frontend still uploads with `multipart/form-data`; the backend receives the file and uploads the file body to a private S3 bucket.
-
-Backend APIs:
-
-```text
-POST   /api/files/upload
-GET    /api/files
-GET    /api/files/{fileId}/download
-DELETE /api/files/{fileId}
+UPLOADING
+AVAILABLE
+FAILED
+DELETED
 ```
 
 Upload flow:
 
 1. The frontend selects a PDF file.
-2. The frontend calls `POST /api/files/upload` with `multipart/form-data`.
-3. `FileController` only receives requests and returns responses.
-4. `FileUploadService` validates that the file is not empty and the Content-Type is `application/pdf`.
-5. The backend inserts DB metadata first with status `UPLOADING`.
-6. The generated DB `id` is used as the S3 object key.
-7. `FileUploadService` calls `S3StorageService.upload(...)` to store the file body in S3.
-8. After upload succeeds, the DB status becomes `AVAILABLE` and an operation log is written.
+2. The frontend calls `/api/files/upload` with `multipart/form-data`.
+3. The backend validates the filename, empty file, and Content-Type.
+4. The backend inserts metadata into the `files` table with status `UPLOADING`.
+5. The backend uses the generated `files.id` as the S3 object key.
+6. The backend uploads the file to S3 through the AWS SDK.
+7. After a successful upload, the file status becomes `AVAILABLE`.
+8. If upload fails, the file status becomes `FAILED`.
+9. The upload result is written to `file_access_logs`.
 
-Download and delete flow:
+Download flow:
 
-- `GET /api/files` returns metadata only, never the file body. Regular users can see only files whose `owner_id` matches their userId; `ADMIN` users can see all non-deleted files.
-- `FileDownloadService` queries DB metadata by `fileId`, checks that the file exists, checks `status = AVAILABLE`, and validates access by `owner_id`.
-- Regular users can download only files whose `owner_id` matches their userId; `ADMIN` can download every file.
-- After authorization succeeds, the backend uses `String.valueOf(fileId)` as the S3 object key and calls `S3StorageService.download(objectKey)` to fetch the file from S3.
-- The download response uses `application/pdf` and sets the `Content-Disposition` filename from `original_filename`.
-- Successful downloads write a `DOWNLOAD / SUCCESS` log; missing files write `DOWNLOAD / NOT_FOUND`; unauthorized access writes `DOWNLOAD / ACCESS_DENIED`.
-- `FileDeleteService` queries DB by `fileId`, checks ownership, calls `S3StorageService.delete(s3Key)`, and writes a delete log.
+1. The backend queries metadata by `fileId`.
+2. It checks that the file exists and has status `AVAILABLE`.
+3. It verifies that the current user has permission to download the file.
+4. It reads the object from S3 using `String.valueOf(fileId)`.
+5. It returns an `application/pdf` response with the original filename.
+6. It writes a success or failure audit log.
 
-Allowed content types:
+Delete flow:
+
+1. The backend queries metadata by `fileId`.
+2. It checks that the file exists and is not already deleted.
+3. It verifies that the current user is the owner.
+4. It deletes the corresponding S3 object.
+5. It updates the DB metadata status to `DELETED`.
+6. It writes a success or failure audit log.
+
+## Database
+
+Schema file:
 
 ```text
-application/pdf
+backend/src/main/resources/schema.sql
 ```
 
-S3 object key rule:
+Main tables:
 
 ```text
-objectKey = String.valueOf(fileId)
+users
+  id
+  username
+  password_hash
+  role
+  created_at
+
+files
+  id
+  owner_id
+  original_filename
+  content_type
+  file_size
+  status
+  created_at
+  updated_at
+
+file_access_logs
+  id
+  file_id
+  user_id
+  action
+  result
+  ip_address
+  created_at
 ```
 
-For example, if the DB primary key is `123`, the S3 object key is also `123`.
-
-The `files` table stores metadata only, not file binary data:
+Audit action / result values:
 
 ```text
-id
-owner_id
-original_filename
-content_type
-file_size
-status
-created_at
-updated_at
+UPLOAD / SUCCESS
+UPLOAD / FAILED
+DOWNLOAD / SUCCESS
+DOWNLOAD / NOT_FOUND
+DOWNLOAD / ACCESS_DENIED
+DOWNLOAD / FAILED
+DELETE / SUCCESS
+DELETE / FAILED
 ```
 
-`S3StorageService` encapsulates all S3 operations for reuse across business services:
+## Environment Variables
+
+Frontend:
 
 ```text
-upload(String s3Key, InputStream inputStream, long contentLength, String contentType)
-download(String objectKey)
-delete(String s3Key)
-exists(String s3Key)
+VITE_API_BASE_URL=https://your-render-backend-url
 ```
 
-Presigned URLs remain a future optimization option. They can be introduced later if backend bandwidth needs to be reduced by letting the browser upload directly to S3.
-
-AWS configuration comes from environment variables or `application.yml`:
+Backend:
 
 ```text
+PORT=8080
+DB_URL=jdbc:mysql://your-rds-endpoint:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B09:00&forceConnectionTimeZoneToSession=true
+DB_USERNAME=your-db-user
+DB_PASSWORD=your-db-password
+JWT_SECRET=replace-with-a-random-secret-of-at-least-32-characters
+JWT_EXPIRATION_MINUTES=120
+CORS_ALLOWED_ORIGINS=https://imaginative-pavlova-90e5f8.netlify.app
 AWS_REGION=ap-northeast-1
-AWS_S3_BUCKET=your-private-bucket-name
+AWS_S3_BUCKET=your-private-s3-bucket
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
 ```
 
-AWS access keys are not hard-coded. For local development, use an AWS CLI profile or environment variables:
+Local defaults are defined in:
 
 ```text
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
+backend/src/main/resources/application.yml
+frontend/src/api/client.js
 ```
 
-Because the current upload flow goes through the backend, local upload testing does not require S3 CORS.
+Do not use the default `JWT_SECRET` in production, and do not commit database passwords or AWS access keys to source control.
 
-## Run
+## Local Development
 
-### Backend
+Create the database:
+
+```sql
+CREATE DATABASE secure_file_vault CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+Start the backend:
 
 ```bash
 cd backend
@@ -191,13 +266,7 @@ Health check:
 http://localhost:8080/api/health
 ```
 
-Expected response:
-
-```text
-OK
-```
-
-### Frontend
+Start the frontend:
 
 ```bash
 cd frontend
@@ -205,46 +274,78 @@ npm install
 npm run dev
 ```
 
-Open the URL printed by Vite. The home page should display `Secure File Vault`.
+Default frontend URL:
+
+```text
+http://localhost:5173
+```
+
+Build the frontend:
+
+```bash
+cd frontend
+npm run build
+```
+
+Run backend tests:
+
+```bash
+cd backend
+mvn test
+```
 
 ## Project Structure
 
 ```text
-secure-file-vault
-  backend
+secure-file-vault/
+  backend/
+    Dockerfile
     pom.xml
-    src/main/java/com/example/securefilevault
-      SecureFileVaultApplication.java
-      config/OpenApiConfig.java
-      controller/HealthController.java
-    src/main/resources
+    src/main/java/com/example/securefilevault/
+      config/
+      controller/
+      dto/
+      exception/
+      mapper/
+      model/
+      security/
+      service/
+      storage/
+    src/main/resources/
       application.yml
-    src/test/java/com/example/securefilevault
-      SecureFileVaultApplicationTests.java
+      schema.sql
+    src/test/
 
-  frontend
+  frontend/
     package.json
     index.html
-    src
+    src/
+      api/
+      components/
+      pages/
       App.jsx
       main.jsx
       styles.css
 ```
 
-## Design Notes
+## Deployment
 
-- Backend and frontend are separated first so later phases can be added cleanly.
-- The S3 bucket is designed as private.
-- Backend upload is used to simulate a legacy-system migration and reduce frontend changes.
-- The DB stores only metadata; the file body is stored in S3.
-- The S3 object key uses the DB primary key, so no separate `s3_key` column is needed.
-- `S3StorageService` encapsulates upload, download, delete, and existence checks for reuse.
-- Authentication secrets and AWS access keys must not be hard-coded. They should come from environment variables or configuration.
+Frontend on Netlify:
 
-## Next Phase
+- Build command: `npm run build`
+- Publish directory: `frontend/dist`
+- Configure `VITE_API_BASE_URL` to point to the Render backend
 
-Possible next improvements:
+Backend on Render:
 
-- `GET /api/files/{fileId}/logs`
-- Admin access control and cross-user audit views
-- Presigned URL upload to reduce backend file-transfer bandwidth
+- Java 17 / Spring Boot application
+- Uses the `PORT` environment variable for Render compatibility
+- Connects to AWS RDS MySQL through environment variables
+- Configures S3 bucket, AWS region, and AWS credentials through environment variables
+- Requires the Netlify domain in `CORS_ALLOWED_ORIGINS`
+
+AWS:
+
+- RDS MySQL stores users, file metadata, and audit logs
+- S3 bucket uses a private access policy
+- File object keys use the DB file primary key as a string

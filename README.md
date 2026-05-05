@@ -2,202 +2,271 @@
 
 [日本語](README.md) | [中文](README.zh-CN.md) | [English](README.en.md)
 
-Spring Boot と AWS S3 を使った、権限制御付きファイル管理システムです。既存システム改修の想定として、これまで DB BLOB に保存していた PDF ファイルを AWS S3 保存へ移行し、DB には metadata だけを保存します。JWT 認証、バックエンド経由の multipart アップロード、ユーザー単位のアクセス制御、DB メタデータ管理、操作ログを段階的に実装します。
+Secure File Vault は、PDF ファイルを安全にアップロード、管理、ダウンロード、削除するための、権限制御付きファイル管理システムです。フロントエンドとバックエンドを分離した構成で、フロントエンドは Netlify、バックエンドは Render にデプロイしています。データベースは AWS RDS MySQL、ファイル本体は private な AWS S3 bucket に保存し、DB にはユーザー情報、ファイル metadata、アクセス監査ログだけを保存します。
 
-## フェーズ 1 の範囲
+公開 URL:
 
-今回のフェーズでは、最小構成のプロジェクト骨格だけを作成しています。
+```text
+https://imaginative-pavlova-90e5f8.netlify.app/
+```
 
-- `backend/`: Java 17 + Spring Boot 3 のバックエンド骨格
-- `frontend/`: React + Vite のフロントエンド骨格
-- `GET /api/health` が `OK` を返す
-- フロントエンドのトップページに `Secure File Vault` を表示
-- README 初版を追加
+## 主な機能
 
-現在のフェーズでは、バックエンドが multipart/form-data を受け取り S3 へアップロードする処理、ダウンロード、削除 API を実装しています。
+- ユーザー登録、ログイン、ログアウト
+- JWT 認証による保護 API へのアクセス
+- ブラウザに保存された token によるログイン状態の復元
+- PDF ファイルアップロード。フロントエンドとバックエンドの両方で `application/pdf` を検証
+- 最大アップロードサイズ 500MB
+- ファイル一覧表示：ファイル名、所有者 ID、Content-Type、サイズ、状態、作成日時
+- バックエンド経由の PDF ダウンロード。ファイル本体は S3 から取得
+- 単一ファイル削除
+- 複数選択による一括削除
+- ユーザー単位の権限制御：一般ユーザーは自分のファイルのみアクセス可能
+- 管理者は削除済み以外の全ファイルを表示、ダウンロード可能
+- 論理削除：S3 object は削除し、DB metadata は `DELETED` として保持
+- アップロード、ダウンロード、削除操作の監査ログ
+- 統一されたエラーレスポンスとフロントエンドでのエラー表示
+- Swagger UI / OpenAPI ドキュメント
 
-## 技術スタック予定
+## 技術スタックと利用プラットフォーム
+
+Frontend:
+
+- React 19
+- Vite 7
+- JavaScript
+- Plain CSS
+- Browser `fetch`
+- JWT は `localStorage` に保存
+- Netlify
 
 Backend:
 
 - Java 17
-- Spring Boot 3
-- Spring Security + JWT
+- Spring Boot 3.3.5
+- Spring Web
+- Spring Security
+- JWT: `io.jsonwebtoken:jjwt`
+- BCrypt password hashing
 - MyBatis
-- MySQL
-- AWS SDK for Java v2
-- Swagger / OpenAPI
+- MySQL JDBC Driver
+- AWS SDK for Java v2: S3
+- Springdoc OpenAPI / Swagger UI
+- JUnit 5 + Spring MockMvc
+- Render
 
-Frontend:
+Infrastructure:
 
-- React
-- Vite
-- CSS
+- AWS RDS MySQL
+- AWS S3 private bucket
+- Netlify environment variables
+- Render environment variables
+- フロントエンド origin 向けの CORS 設定
 
-## Authentication
-
-フェーズ 2 では、Spring Security + JWT によるログイン認証を実装しています。
-
-バックエンド API:
+## システム構成
 
 ```text
-POST /api/auth/register
-POST /api/auth/login
-GET  /api/auth/me
+Browser
+  |
+  | React + Vite frontend
+  v
+Netlify
+  |
+  | HTTPS API requests with Authorization: Bearer <JWT>
+  v
+Render
+  |
+  | Spring Boot REST API
+  v
+AWS RDS MySQL  <---- metadata / users / audit logs
+AWS S3         <---- PDF file bodies
 ```
 
-認証フロー:
+ファイルは DB BLOB として保存しません。アップロード時は、バックエンドが先にファイル metadata を作成し、生成された `files.id` を S3 object key としてファイル本体を S3 に保存します。ダウンロード時は、DB metadata、ファイル状態、ユーザー権限を確認した後、S3 からファイル本体を取得してブラウザへ返します。
 
-1. ユーザーは `POST /api/auth/register` でアカウントを登録します。
-2. バックエンドは BCrypt で password hash を保存し、平文パスワードは保存しません。
-3. 登録またはログインに成功すると、バックエンドは JWT を返します。
-4. フロントエンドは JWT を `localStorage` に保存します。
-5. 認証が必要な API には、以下のリクエストヘッダーを付けます。
+## API 一覧
+
+公開 API:
+
+| Method | Endpoint | 説明 |
+| --- | --- | --- |
+| `GET` | `/api/health` | バックエンドのヘルスチェック |
+| `POST` | `/api/auth/register` | ユーザー登録 |
+| `POST` | `/api/auth/login` | ログイン |
+| `GET` | `/swagger-ui.html` | Swagger UI |
+
+JWT が必要な API:
+
+| Method | Endpoint | 説明 |
+| --- | --- | --- |
+| `GET` | `/api/auth/me` | 現在のログインユーザー取得 |
+| `POST` | `/api/files/upload` | PDF ファイルアップロード |
+| `GET` | `/api/files` | ファイル一覧取得 |
+| `GET` | `/api/files/{fileId}/download` | ファイルダウンロード |
+| `DELETE` | `/api/files/{fileId}` | ファイル削除 |
+
+保護 API には以下のヘッダーが必要です。
 
 ```text
 Authorization: Bearer <token>
 ```
 
-6. バックエンドの JWT Filter が token を検証し、現在のユーザーを読み込みます。
-7. 未ログインユーザーは `GET /api/auth/me` や FileDashboard にアクセスできません。
+## 権限ルール
 
-`users` テーブル:
+- 未ログインユーザーはヘルスチェック、登録、ログイン、OpenAPI ドキュメントのみアクセス可能。
+- 一般 `USER` は自分がアップロードしたファイルだけを表示、ダウンロード、削除可能。
+- `ADMIN` は削除済み以外の全ファイルを表示、ダウンロード可能。
+- ファイル削除は owner のみ実行可能。
+- `AVAILABLE` 以外の状態のファイルはダウンロード不可。
+- 削除済みファイルはダウンロード対象として提供しない。
+
+## ファイルライフサイクル
+
+ファイル状態:
 
 ```text
-id
-username
-password_hash
-role
-created_at
+UPLOADING
+AVAILABLE
+FAILED
+DELETED
 ```
 
-バックエンド起動前に、MySQL のデータベースが存在することを確認してください。
+アップロード処理:
+
+1. フロントエンドで PDF ファイルを選択します。
+2. フロントエンドが `multipart/form-data` で `/api/files/upload` を呼び出します。
+3. バックエンドがファイル名、空ファイル、Content-Type を検証します。
+4. バックエンドが `files` テーブルへ metadata を登録し、状態を `UPLOADING` にします。
+5. 生成された `files.id` を S3 object key として使用します。
+6. AWS SDK 経由でファイル本体を S3 にアップロードします。
+7. アップロード成功後、状態を `AVAILABLE` に更新します。
+8. アップロード失敗時は、状態を `FAILED` に更新します。
+9. アップロード結果を `file_access_logs` に記録します。
+
+ダウンロード処理:
+
+1. バックエンドが `fileId` で metadata を検索します。
+2. ファイルが存在し、状態が `AVAILABLE` であることを確認します。
+3. 現在のユーザーにダウンロード権限があるか確認します。
+4. `String.valueOf(fileId)` を使って S3 から object を取得します。
+5. `application/pdf` として返却し、元のファイル名を設定します。
+6. ダウンロード成功または失敗を監査ログに記録します。
+
+削除処理:
+
+1. バックエンドが `fileId` で metadata を検索します。
+2. ファイルが存在し、未削除であることを確認します。
+3. 現在のユーザーが owner であることを確認します。
+4. 対応する S3 object を削除します。
+5. DB metadata の状態を `DELETED` に更新します。
+6. 削除成功または失敗を監査ログに記録します。
+
+## データベース
+
+初期化スクリプト:
+
+```text
+backend/src/main/resources/schema.sql
+```
+
+主なテーブル:
+
+```text
+users
+  id
+  username
+  password_hash
+  role
+  created_at
+
+files
+  id
+  owner_id
+  original_filename
+  content_type
+  file_size
+  status
+  created_at
+  updated_at
+
+file_access_logs
+  id
+  file_id
+  user_id
+  action
+  result
+  ip_address
+  created_at
+```
+
+監査ログで使用する action / result:
+
+```text
+UPLOAD / SUCCESS
+UPLOAD / FAILED
+DOWNLOAD / SUCCESS
+DOWNLOAD / NOT_FOUND
+DOWNLOAD / ACCESS_DENIED
+DOWNLOAD / FAILED
+DELETE / SUCCESS
+DELETE / FAILED
+```
+
+## 環境変数
+
+Frontend:
+
+```text
+VITE_API_BASE_URL=https://your-render-backend-url
+```
+
+Backend:
+
+```text
+PORT=8080
+DB_URL=jdbc:mysql://your-rds-endpoint:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B09:00&forceConnectionTimeZoneToSession=true
+DB_USERNAME=your-db-user
+DB_PASSWORD=your-db-password
+JWT_SECRET=replace-with-a-random-secret-of-at-least-32-characters
+JWT_EXPIRATION_MINUTES=120
+CORS_ALLOWED_ORIGINS=https://imaginative-pavlova-90e5f8.netlify.app
+AWS_REGION=ap-northeast-1
+AWS_S3_BUCKET=your-private-s3-bucket
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+```
+
+ローカル開発用のデフォルト値は以下で定義しています。
+
+```text
+backend/src/main/resources/application.yml
+frontend/src/api/client.js
+```
+
+本番環境ではデフォルトの `JWT_SECRET` を使用せず、DB password や AWS access key をソースコードにコミットしないでください。
+
+## ローカル開発
+
+データベース作成:
 
 ```sql
 CREATE DATABASE secure_file_vault CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-デフォルト設定:
-
-```text
-DB_URL=jdbc:mysql://localhost:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B09:00&forceConnectionTimeZoneToSession=true
-DB_USERNAME=root
-DB_PASSWORD=password
-JWT_SECRET=dev-only-change-me-secure-file-vault-jwt-secret-please-override
-```
-
-本番環境や共有環境では、`JWT_SECRET` を 32 文字以上のランダム文字列に変更してください。
-
-## S3 Backend Upload
-
-現在の実装では、既存システムの DB BLOB 保存から AWS S3 保存への移行をシミュレーションしています。既存フロントエンドの改修範囲を小さくするため、フロントエンドは `multipart/form-data` でバックエンドへアップロードし、ファイル本体はバックエンドが private S3 bucket へ保存します。
-
-バックエンド API:
-
-```text
-POST   /api/files/upload
-GET    /api/files
-GET    /api/files/{fileId}/download
-DELETE /api/files/{fileId}
-```
-
-アップロードフロー:
-
-1. フロントエンドで PDF ファイルを選択します。
-2. フロントエンドが `multipart/form-data` で `POST /api/files/upload` を呼び出します。
-3. `FileController` はリクエスト受け取りとレスポンス返却だけを担当します。
-4. `FileUploadService` が空ファイルと Content-Type `application/pdf` を検証します。
-5. バックエンドが DB metadata を `UPLOADING` で先に登録します。
-6. DB で生成された `id` を S3 object key として使います。
-7. `FileUploadService` が `S3StorageService.upload(...)` を呼び出して S3 へ保存します。
-8. アップロード成功後、DB 状態を `AVAILABLE` に更新し、操作ログを記録します。
-
-ダウンロードと削除:
-
-- `GET /api/files` は metadata のみを返し、ファイル本体は返しません。一般ユーザーは `owner_id` が自分の userId と一致するファイルだけを参照でき、`ADMIN` は削除済み以外の全ファイルを参照できます。
-- `FileDownloadService` は `fileId` で DB metadata を検索し、存在確認、`status = AVAILABLE`、`owner_id` による権限チェックを行います。
-- 一般ユーザーは `owner_id` が自分の userId と一致するファイルだけをダウンロードでき、`ADMIN` は全ファイルをダウンロードできます。
-- 権限チェック後、バックエンドは `String.valueOf(fileId)` を S3 object key として使い、`S3StorageService.download(objectKey)` で S3 からファイルを取得します。
-- ダウンロードレスポンスは `application/pdf` とし、`original_filename` を使って `Content-Disposition` のファイル名を設定します。
-- ダウンロード成功時は `DOWNLOAD / SUCCESS`、ファイル不存在時は `DOWNLOAD / NOT_FOUND`、権限なしの場合は `DOWNLOAD / ACCESS_DENIED` をログに記録します。
-- `FileDeleteService` は `fileId` で DB を検索し、権限チェック後に `S3StorageService.delete(s3Key)` を呼び出し、削除ログを記録します。
-
-許可する content type:
-
-```text
-application/pdf
-```
-
-S3 object key のルール:
-
-```text
-objectKey = String.valueOf(fileId)
-```
-
-たとえば DB 主キーが `123` の場合、S3 object key も `123` です。
-
-`files` テーブルはファイル本体を保存せず、metadata だけを保存します。
-
-```text
-id
-owner_id
-original_filename
-content_type
-file_size
-status
-created_at
-updated_at
-```
-
-`S3StorageService` は S3 操作を共通化し、複数の業務 Service から再利用できるようにしています。
-
-```text
-upload(String s3Key, InputStream inputStream, long contentLength, String contentType)
-download(String objectKey)
-delete(String s3Key)
-exists(String s3Key)
-```
-
-Presigned URL は将来の最適化案です。バックエンドの転送帯域を下げたい場合、後続フェーズでブラウザから S3 へ直接アップロードする方式に変更できます。
-
-AWS 設定は環境変数または `application.yml` から読み込みます。
-
-```text
-AWS_REGION=ap-northeast-1
-AWS_S3_BUCKET=your-private-bucket-name
-```
-
-AWS access key はコードに書きません。ローカル開発では AWS CLI profile または環境変数を使用します。
-
-```text
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
-```
-
-現在のアップロード方式ではブラウザが S3 に直接アクセスしないため、ローカルアップロード確認に S3 CORS は不要です。
-
-## 起動方法
-
-### Backend
+バックエンド起動:
 
 ```bash
 cd backend
 mvn spring-boot:run
 ```
 
-確認 URL:
+ヘルスチェック:
 
 ```text
 http://localhost:8080/api/health
 ```
 
-期待結果:
-
-```text
-OK
-```
-
-### Frontend
+フロントエンド起動:
 
 ```bash
 cd frontend
@@ -205,46 +274,78 @@ npm install
 npm run dev
 ```
 
-Vite の表示する URL をブラウザで開くと、トップページに `Secure File Vault` が表示されます。
+デフォルトのフロントエンド URL:
+
+```text
+http://localhost:5173
+```
+
+フロントエンド build:
+
+```bash
+cd frontend
+npm run build
+```
+
+バックエンド test:
+
+```bash
+cd backend
+mvn test
+```
 
 ## プロジェクト構成
 
 ```text
-secure-file-vault
-  backend
+secure-file-vault/
+  backend/
+    Dockerfile
     pom.xml
-    src/main/java/com/example/securefilevault
-      SecureFileVaultApplication.java
-      config/OpenApiConfig.java
-      controller/HealthController.java
-    src/main/resources
+    src/main/java/com/example/securefilevault/
+      config/
+      controller/
+      dto/
+      exception/
+      mapper/
+      model/
+      security/
+      service/
+      storage/
+    src/main/resources/
       application.yml
-    src/test/java/com/example/securefilevault
-      SecureFileVaultApplicationTests.java
+      schema.sql
+    src/test/
 
-  frontend
+  frontend/
     package.json
     index.html
-    src
+    src/
+      api/
+      components/
+      pages/
       App.jsx
       main.jsx
       styles.css
 ```
 
-## 設計方針
+## デプロイ
 
-- まずはバックエンドとフロントエンドを分離し、後続フェーズで機能を追加しやすくします。
-- S3 bucket は private 前提で設計します。
-- バックエンド経由のアップロードは、既存システム改修を想定し、既存フロントエンドの改修範囲を小さくするために採用しています。
-- DB は metadata のみを保存し、ファイル本体は S3 に保存します。
-- S3 object key は DB 主キーを使用し、別途 `s3_key` は保存しません。
-- `S3StorageService` がアップロード、ダウンロード、削除、存在確認を共通化します。
-- 認証情報や AWS access key はコードに直接書かず、環境変数または設定ファイルから読み込みます。
+Frontend on Netlify:
 
-## 次のフェーズ
+- Build command: `npm run build`
+- Publish directory: `frontend/dist`
+- `VITE_API_BASE_URL` に Render のバックエンド URL を設定
 
-次は以下の改善が考えられます。
+Backend on Render:
 
-- `GET /api/files/{fileId}/logs`
-- 管理者権限とユーザー横断の監査
-- バックエンドの転送帯域を削減する Presigned URL アップロード
+- Java 17 / Spring Boot アプリケーション
+- Render の port に対応するため `PORT` 環境変数を使用
+- 環境変数経由で AWS RDS MySQL に接続
+- 環境変数経由で S3 bucket、AWS region、AWS credentials を設定
+- Netlify の domain を `CORS_ALLOWED_ORIGINS` に設定
+
+AWS:
+
+- RDS MySQL はユーザー、ファイル metadata、監査ログを保存
+- S3 bucket は private access policy で運用
+- ファイル object key は DB の file primary key を文字列化して使用

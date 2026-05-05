@@ -2,202 +2,271 @@
 
 [日本語](README.md) | [中文](README.zh-CN.md) | [English](README.en.md)
 
-这是一个基于 Spring Boot + AWS S3 的权限控制文件管理系统。项目模拟既存系统改修场景：原本 PDF 文件以 DB BLOB 保存，现在迁移为文件本体保存到 AWS S3，DB 只保存 metadata。项目会按阶段实现 JWT 认证、后端 multipart 上传、用户级权限控制、文件元数据 DB 管理和操作日志。
+Secure File Vault 是一个已经上线的权限控制文件管理系统，用于安全地上传、管理、下载和删除 PDF 文件。系统采用前后端分离架构：前端部署在 Netlify，后端部署在 Render，数据库使用 AWS RDS MySQL，文件本体保存到私有 AWS S3 bucket，数据库只保存用户、文件 metadata 和访问审计日志。
 
-## 第一阶段范围
+在线访问：
 
-当前阶段只完成最小项目骨架：
+```text
+https://imaginative-pavlova-90e5f8.netlify.app/
+```
 
-- `backend/`：Java 17 + Spring Boot 3 后端骨架
-- `frontend/`：React + Vite 前端骨架
-- `GET /api/health` 返回 `OK`
-- 前端首页显示 `Secure File Vault`
-- 添加 README 初版
+## 核心功能
 
-当前阶段已实现后端接收 multipart/form-data 后上传到 S3，并提供后端下载和删除接口。
+- 用户注册、登录、登出
+- JWT 认证与受保护 API 访问
+- 登录状态恢复，刷新页面后可通过本地 token 恢复当前用户
+- PDF 文件上传，前后端都限制只允许 `application/pdf`
+- 最大上传文件大小为 500MB
+- 文件列表展示：文件名、所有者 ID、类型、大小、状态、创建时间
+- PDF 文件下载，后端从 S3 读取文件后返回给浏览器
+- 单个文件删除
+- 多选文件后一键批量删除
+- 用户级权限控制：普通用户只能访问自己的文件
+- 管理员可查看和下载所有未删除文件
+- 删除采用逻辑删除：S3 object 会被删除，DB metadata 保留为 `DELETED`
+- 上传、下载、删除操作会写入审计日志
+- 统一错误响应，前端展示后端返回的错误信息
+- Swagger UI / OpenAPI 文档
 
-## 计划技术栈
+## 技术栈与平台
+
+Frontend:
+
+- React 19
+- Vite 7
+- JavaScript
+- 原生 CSS
+- Browser `fetch`
+- JWT 保存于 `localStorage`
+- Netlify
 
 Backend:
 
 - Java 17
-- Spring Boot 3
-- Spring Security + JWT
+- Spring Boot 3.3.5
+- Spring Web
+- Spring Security
+- JWT: `io.jsonwebtoken:jjwt`
+- BCrypt password hashing
 - MyBatis
-- MySQL
-- AWS SDK for Java v2
-- Swagger / OpenAPI
+- MySQL JDBC Driver
+- AWS SDK for Java v2: S3
+- Springdoc OpenAPI / Swagger UI
+- JUnit 5 + Spring MockMvc
+- Render
 
-Frontend:
+Infrastructure:
 
-- React
-- Vite
-- CSS
+- AWS RDS MySQL
+- AWS S3 private bucket
+- Netlify environment variables
+- Render environment variables
+- CORS configured for frontend origin
 
-## Authentication
-
-第二阶段实现了基于 Spring Security + JWT 的登录认证。
-
-后端接口：
+## 系统架构
 
 ```text
-POST /api/auth/register
-POST /api/auth/login
-GET  /api/auth/me
+Browser
+  |
+  | React + Vite frontend
+  v
+Netlify
+  |
+  | HTTPS API requests with Authorization: Bearer <JWT>
+  v
+Render
+  |
+  | Spring Boot REST API
+  v
+AWS RDS MySQL  <---- metadata / users / audit logs
+AWS S3         <---- PDF file bodies
 ```
 
-认证流程：
+文件不会以 BLOB 的形式存入数据库。上传时，后端先创建文件 metadata，再使用 DB 生成的 `files.id` 作为 S3 object key 上传文件本体。下载时，后端先检查 DB metadata、文件状态和用户权限，再从 S3 读取文件并返回给浏览器。
 
-1. 用户通过 `POST /api/auth/register` 注册账号。
-2. 后端使用 BCrypt 保存密码 hash，不保存明文密码。
-3. 注册或登录成功后，后端返回 JWT。
-4. 前端将 JWT 保存到 `localStorage`。
-5. 前端请求受保护 API 时自动添加请求头：
+## API 一览
+
+公开接口：
+
+| Method | Endpoint | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/health` | 后端健康检查 |
+| `POST` | `/api/auth/register` | 注册用户 |
+| `POST` | `/api/auth/login` | 用户登录 |
+| `GET` | `/swagger-ui.html` | Swagger UI |
+
+需要 JWT 的接口：
+
+| Method | Endpoint | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/auth/me` | 获取当前登录用户 |
+| `POST` | `/api/files/upload` | 上传 PDF 文件 |
+| `GET` | `/api/files` | 获取文件列表 |
+| `GET` | `/api/files/{fileId}/download` | 下载文件 |
+| `DELETE` | `/api/files/{fileId}` | 删除文件 |
+
+受保护接口需要请求头：
 
 ```text
 Authorization: Bearer <token>
 ```
 
-6. 后端 JWT Filter 校验 token，并从 token 中解析用户身份。
-7. 未登录用户不能访问 `GET /api/auth/me` 和后续文件管理页面。
+## 权限规则
 
-`users` 表：
+- 未登录用户只能访问健康检查、注册、登录和 OpenAPI 文档。
+- 普通 `USER` 只能查看、下载和删除自己上传的文件。
+- `ADMIN` 可以查看和下载所有未删除文件。
+- 删除文件只允许文件 owner 操作。
+- 状态不是 `AVAILABLE` 的文件不能下载。
+- 已删除文件不会作为可用文件继续提供下载。
 
-```text
-id
-username
-password_hash
-role
-created_at
-```
+## 文件生命周期
 
-启动后端前，请先确认 MySQL 数据库存在：
-
-```sql
-CREATE DATABASE secure_file_vault CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
-
-默认连接配置：
+文件状态：
 
 ```text
-DB_URL=jdbc:mysql://localhost:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B09:00&forceConnectionTimeZoneToSession=true
-DB_USERNAME=root
-DB_PASSWORD=password
-JWT_SECRET=dev-only-change-me-secure-file-vault-jwt-secret-please-override
-```
-
-生产或共享环境中，请将 `JWT_SECRET` 改成至少 32 字符的随机字符串，不要使用默认值。
-
-## S3 Backend Upload
-
-当前实现模拟既存系统从 DB BLOB 保存迁移到 AWS S3 保存。为了降低既存前端改修范围，前端仍然使用常见的 `multipart/form-data` 上传方式调用后端，文件本体由后端接收后上传到私有 S3 bucket。
-
-后端接口：
-
-```text
-POST   /api/files/upload
-GET    /api/files
-GET    /api/files/{fileId}/download
-DELETE /api/files/{fileId}
+UPLOADING
+AVAILABLE
+FAILED
+DELETED
 ```
 
 上传流程：
 
 1. 前端选择 PDF 文件。
-2. 前端通过 `multipart/form-data` 调用 `POST /api/files/upload`。
-3. `FileController` 只负责接收请求和返回响应。
-4. `FileUploadService` 校验文件是否为空、Content-Type 是否为 `application/pdf`。
-5. 后端先插入 DB metadata，状态为 `UPLOADING`。
-6. DB 生成的 `id` 作为 S3 object key。
-7. `FileUploadService` 调用 `S3StorageService.upload(...)` 把文件本体保存到 S3。
-8. 上传成功后，DB 状态更新为 `AVAILABLE`，并记录操作日志。
+2. 前端通过 `multipart/form-data` 调用 `/api/files/upload`。
+3. 后端校验文件名、空文件和 Content-Type。
+4. 后端向 `files` 表写入 metadata，状态为 `UPLOADING`。
+5. 后端使用生成的 `files.id` 作为 S3 object key。
+6. 后端调用 AWS SDK 将文件上传到 S3。
+7. 上传成功后，文件状态更新为 `AVAILABLE`。
+8. 上传失败时，文件状态更新为 `FAILED`。
+9. 上传结果写入 `file_access_logs`。
 
-下载和删除流程：
+下载流程：
 
-- `GET /api/files` 只返回 DB metadata，不返回文件本体。普通用户只能看到 `owner_id` 等于自己 userId 的文件，`ADMIN` 用户可以看到所有未删除文件。
-- `FileDownloadService` 根据 `fileId` 查询 DB metadata，校验文件存在、`status = AVAILABLE`，并通过 `owner_id` 做权限校验。
-- 普通用户只能下载 `owner_id` 等于自己 userId 的文件，`ADMIN` 可以下载所有文件。
-- 权限校验通过后，后端使用 `String.valueOf(fileId)` 作为 S3 object key，调用 `S3StorageService.download(objectKey)` 从 S3 获取文件。
-- 下载响应使用 `application/pdf`，并通过 `original_filename` 设置 `Content-Disposition` 文件名。
-- 下载成功时记录 `DOWNLOAD / SUCCESS` 日志；文件不存在记录 `DOWNLOAD / NOT_FOUND`；无权限记录 `DOWNLOAD / ACCESS_DENIED`。
-- `FileDeleteService` 根据 `fileId` 查询 DB，校验当前用户权限，然后通过 `S3StorageService.delete(s3Key)` 删除 S3 object，并记录删除日志。
+1. 后端根据 `fileId` 查询 metadata。
+2. 校验文件存在、状态为 `AVAILABLE`。
+3. 校验当前用户是否有权限下载。
+4. 使用 `String.valueOf(fileId)` 从 S3 读取文件。
+5. 返回 `application/pdf` 响应，并设置原始文件名。
+6. 写入下载成功或失败日志。
 
-允许上传的类型：
+删除流程：
+
+1. 后端根据 `fileId` 查询 metadata。
+2. 校验文件存在且未删除。
+3. 校验当前用户是否为 owner。
+4. 删除对应 S3 object。
+5. DB metadata 状态更新为 `DELETED`。
+6. 写入删除成功或失败日志。
+
+## 数据库表
+
+初始化脚本：
 
 ```text
-application/pdf
+backend/src/main/resources/schema.sql
 ```
 
-S3 object key 规则：
+主要表：
 
 ```text
-objectKey = String.valueOf(fileId)
+users
+  id
+  username
+  password_hash
+  role
+  created_at
+
+files
+  id
+  owner_id
+  original_filename
+  content_type
+  file_size
+  status
+  created_at
+  updated_at
+
+file_access_logs
+  id
+  file_id
+  user_id
+  action
+  result
+  ip_address
+  created_at
 ```
 
-例如 DB 主键是 `123`，则 S3 object key 也是 `123`。
-
-`files` 表只保存 metadata，不保存文件二进制：
+审计日志中使用的 action / result：
 
 ```text
-id
-owner_id
-original_filename
-content_type
-file_size
-status
-created_at
-updated_at
+UPLOAD / SUCCESS
+UPLOAD / FAILED
+DOWNLOAD / SUCCESS
+DOWNLOAD / NOT_FOUND
+DOWNLOAD / ACCESS_DENIED
+DOWNLOAD / FAILED
+DELETE / SUCCESS
+DELETE / FAILED
 ```
 
-`S3StorageService` 独立封装所有 S3 操作，业务 Service 不重复编写 S3 代码：
+## 环境变量
+
+Frontend:
 
 ```text
-upload(String s3Key, InputStream inputStream, long contentLength, String contentType)
-download(String objectKey)
-delete(String s3Key)
-exists(String s3Key)
+VITE_API_BASE_URL=https://your-render-backend-url
 ```
 
-Presigned URL 仍然可以作为未来优化方案：当需要降低后端带宽压力时，可以改为后端签发临时 URL，浏览器直接上传到 S3。
-
-AWS 配置来自环境变量或 `application.yml`：
+Backend:
 
 ```text
+PORT=8080
+DB_URL=jdbc:mysql://your-rds-endpoint:3306/secure_file_vault?useSSL=false&allowPublicKeyRetrieval=true&connectionTimeZone=%2B09:00&forceConnectionTimeZoneToSession=true
+DB_USERNAME=your-db-user
+DB_PASSWORD=your-db-password
+JWT_SECRET=replace-with-a-random-secret-of-at-least-32-characters
+JWT_EXPIRATION_MINUTES=120
+CORS_ALLOWED_ORIGINS=https://imaginative-pavlova-90e5f8.netlify.app
 AWS_REGION=ap-northeast-1
-AWS_S3_BUCKET=your-private-bucket-name
+AWS_S3_BUCKET=your-private-s3-bucket
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
 ```
 
-AWS access key 不写在代码里。开发环境建议使用 AWS CLI profile 或环境变量：
+本地开发默认值定义在：
 
 ```text
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
+backend/src/main/resources/application.yml
+frontend/src/api/client.js
 ```
 
-当前后端上传方式不要求浏览器直接访问 S3，因此本地开发不需要为了上传配置 S3 CORS。
+生产环境中不要使用默认 `JWT_SECRET`，也不要把数据库密码或 AWS access key 写入源码。
 
-## 启动方法
+## 本地运行
 
-### Backend
+准备数据库：
+
+```sql
+CREATE DATABASE secure_file_vault CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
+
+启动后端：
 
 ```bash
 cd backend
 mvn spring-boot:run
 ```
 
-检查接口：
+健康检查：
 
 ```text
 http://localhost:8080/api/health
 ```
 
-期待结果：
-
-```text
-OK
-```
-
-### Frontend
+启动前端：
 
 ```bash
 cd frontend
@@ -205,46 +274,78 @@ npm install
 npm run dev
 ```
 
-打开 Vite 输出的访问地址，首页应显示 `Secure File Vault`。
+默认前端地址：
+
+```text
+http://localhost:5173
+```
+
+前端构建：
+
+```bash
+cd frontend
+npm run build
+```
+
+后端测试：
+
+```bash
+cd backend
+mvn test
+```
 
 ## 项目结构
 
 ```text
-secure-file-vault
-  backend
+secure-file-vault/
+  backend/
+    Dockerfile
     pom.xml
-    src/main/java/com/example/securefilevault
-      SecureFileVaultApplication.java
-      config/OpenApiConfig.java
-      controller/HealthController.java
-    src/main/resources
+    src/main/java/com/example/securefilevault/
+      config/
+      controller/
+      dto/
+      exception/
+      mapper/
+      model/
+      security/
+      service/
+      storage/
+    src/main/resources/
       application.yml
-    src/test/java/com/example/securefilevault
-      SecureFileVaultApplicationTests.java
+      schema.sql
+    src/test/
 
-  frontend
+  frontend/
     package.json
     index.html
-    src
+    src/
+      api/
+      components/
+      pages/
       App.jsx
       main.jsx
       styles.css
 ```
 
-## 设计思路
+## 部署说明
 
-- 先分离后端和前端目录，方便后续按阶段扩展。
-- S3 bucket 按 private 设计，用户不能直接访问 public URL。
-- 采用后端上传方式是为了模拟既存系统改修，并降低既存前端改修范围。
-- DB 只保存 metadata，文件本体保存到 S3。
-- S3 object key 使用 DB 主键，不再额外保存 `s3_key`。
-- `S3StorageService` 独立封装上传、下载、删除和存在性检查，便于多个业务 Service 复用。
-- 认证密钥和 AWS access key 不写死在代码里，使用环境变量或配置文件。
+Frontend on Netlify:
 
-## 下一阶段建议
+- 构建命令：`npm run build`
+- 输出目录：`frontend/dist`
+- 需要配置 `VITE_API_BASE_URL` 指向 Render 后端地址
 
-下一阶段可以继续优化：
+Backend on Render:
 
-- `GET /api/files/{fileId}/logs`
-- 管理员权限和跨用户审计
-- Presigned URL 直传，降低后端文件传输带宽
+- Java 17 / Spring Boot 应用
+- 使用 `PORT` 环境变量适配 Render 端口
+- 通过环境变量连接 AWS RDS MySQL
+- 通过环境变量配置 S3 bucket、AWS region 和 AWS credentials
+- 需要将 Netlify 域名加入 `CORS_ALLOWED_ORIGINS`
+
+AWS:
+
+- RDS MySQL 保存用户、文件 metadata、审计日志
+- S3 bucket 使用 private 访问策略
+- 文件 object key 使用 DB 文件主键字符串
