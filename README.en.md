@@ -9,6 +9,9 @@ Live site:
 ```text
 https://imaginative-pavlova-90e5f8.netlify.app/
 ```
+<img width="1927" height="1055" alt="image" src="https://github.com/user-attachments/assets/779623ca-745b-4d04-916d-5969dfe00346" />
+<br/>
+<img width="2536" height="1247" alt="image" src="https://github.com/user-attachments/assets/964344e0-41fd-4c56-880b-36196cf9598a" />
 
 ## Features
 
